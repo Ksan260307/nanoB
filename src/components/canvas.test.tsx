@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { indexOfCode } from '../data/palette';
 import { EMPTY } from '../lib/pattern';
 import { useStore } from '../state/store';
+import { answerConfirm } from '../test/dialog';
 import { FakeImage, mockRect, opaqueCanvas } from '../test/fakes';
 import { resizeObservers } from '../test/setup';
 import { BackgroundDialog } from './BackgroundDialog';
@@ -25,7 +26,7 @@ beforeEach(() => {
   rect = mockRect(400, 300);
   vi.stubGlobal('Image', FakeImage);
   st().closeProject();
-  useStore.setState({ toast: null, focus: null, compare: false, converting: false, buildMode: false });
+  useStore.setState({ toast: null, focus: null, compare: false, converting: false, buildMode: false, symmetry: 'none' });
 });
 
 afterEach(() => {
@@ -238,6 +239,49 @@ describe('Stage (図案の表示と編集)', () => {
     expect(st().past).toHaveLength(0);
   });
 
+  it('対称に描く: 反対側にも置き、まん中の線を描く (元画像を表示中は線なし)', async () => {
+    // 描いたときの canvas の命令を集める
+    const contexts: { calls: string[] }[] = [];
+    const original = HTMLCanvasElement.prototype.getContext;
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement, ...args: unknown[]) {
+      const ctx = (original as unknown as (...a: unknown[]) => { calls: string[] }).apply(this, args);
+      contexts.push(ctx);
+      return ctx as unknown as RenderingContext;
+    });
+    const dashedDrawn = async () => {
+      contexts.length = 0;
+      await waitFor(() => expect(contexts.some((c) => c.calls.includes('setLineDash'))).toBe(true));
+    };
+    freeProject();
+    st().setColor(RED);
+    act(() => st().setUi({ symmetry: 'xy' }));
+    const { container, unmount } = render(<Stage />);
+    await dashedDrawn();
+    const c = canvasOf(container);
+    down(c, 1, ...cellAt(0, 0));
+    up(c, 1, ...cellAt(0, 0));
+    expect([0, 3, 12, 15].map((i) => st().cells[i])).toEqual([RED, RED, RED, RED]);
+    expect(st().cells[1]).toBe(EMPTY);
+    // 左右だけ
+    act(() => st().setUi({ symmetry: 'x' }));
+    await dashedDrawn();
+    act(() => st().setTool('eraser'));
+    down(c, 1, ...cellAt(0, 0));
+    up(c, 1, ...cellAt(0, 0));
+    expect([0, 3, 12, 15].map((i) => st().cells[i])).toEqual([EMPTY, EMPTY, RED, RED]);
+    // 元画像を表示中は線を描かない
+    act(() => st().setUi({ compare: true }));
+    contexts.length = 0;
+    await waitFor(() => expect(contexts.length).toBeGreaterThan(0));
+    expect(contexts.some((ctx) => ctx.calls.includes('setLineDash'))).toBe(false);
+    unmount();
+    // 上下だけ (ダークモード)
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
+    act(() => st().setUi({ symmetry: 'y', compare: false }));
+    render(<Stage />);
+    await dashedDrawn();
+  });
+
   it('2本指の操作が始まったら描きかけを取り消す', () => {
     freeProject();
     st().setColor(BLUE);
@@ -416,10 +460,10 @@ describe('BuildMode (つくるモードのタップ・プレート・画面ス�
   it('全部置いた色は「完了」・チェックを全部消すのをやめる', async () => {
     project(28, 28);
     act(() => st().setDone([0, 1, 40], true));
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
     render(<BuildMode />);
     expect(screen.getByText('完了')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'チェックを全部消す' }));
+    await answerConfirm('キャンセル');
     expect(st().project!.done[0]).toBe(1);
   });
 });

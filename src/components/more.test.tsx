@@ -8,6 +8,7 @@ import App from '../App';
 import { indexOfCode } from '../data/palette';
 import { NO_EDIT } from '../lib/pattern';
 import { useStore } from '../state/store';
+import { answerConfirm } from '../test/dialog';
 import { FakeImage, mockRect } from '../test/fakes';
 import { BackgroundDialog } from './BackgroundDialog';
 import { BuildMode } from './BuildMode';
@@ -349,9 +350,12 @@ describe('画像パネルの細かな分岐', () => {
     act(() => vi.advanceTimersByTime(100));
     expect(st().underlayOpacity).toBeCloseTo(0.8);
     vi.useRealTimers();
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
     await userEvent.click(screen.getByRole('button', { name: /この画像から自動で作る/ }));
+    await answerConfirm('キャンセル');
     expect(st().project!.mode).toBe('free');
+    await userEvent.click(screen.getByRole('button', { name: /この画像から自動で作る/ }));
+    await answerConfirm('自動で作る');
+    expect(st().project!.mode).toBe('image');
   });
 });
 
@@ -368,12 +372,12 @@ describe('サイズパネルの細かな分岐', () => {
       st().paint([5], BLUE);
       st().endStroke(true);
     });
-    vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
     await userEvent.click(screen.getByRole('button', { name: /9枚/ }));
+    await answerConfirm('キャンセル');
     expect(st().project!.width).toBe(56);
     expect(st().project!.overlay[5]).not.toBe(NO_EDIT);
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     await userEvent.click(screen.getAllByRole('button', { name: 'たてを増やす' })[0]);
+    await answerConfirm('変える');
     expect(st().project!.height).toBe(84);
     // ビーズの数: 縦横比をはずして、たて・よこを別々に
     await userEvent.click(screen.getByRole('radio', { name: 'ビーズの数' }));

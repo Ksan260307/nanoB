@@ -6,6 +6,7 @@ import App from '../App';
 import { indexOfCode, PALETTE } from '../data/palette';
 import { EMPTY } from '../lib/pattern';
 import { useStore } from '../state/store';
+import { answerConfirm } from '../test/dialog';
 import { BackgroundDialog } from './BackgroundDialog';
 import { BuildMode } from './BuildMode';
 import { CropDialog } from './CropDialog';
@@ -45,7 +46,6 @@ function imageProject(fill = RED) {
 beforeEach(() => {
   st().closeProject();
   useStore.setState({ toast: null, buildMode: false, tab: 'image', focus: null });
-  vi.spyOn(window, 'confirm').mockReturnValue(true);
 });
 
 afterEach(() => {
@@ -345,8 +345,10 @@ describe('編集パネル (手動でビーズを置く)', () => {
     });
     render(<EditPanel />);
     await userEvent.click(screen.getByRole('button', { name: /手直しを全部もどす/ }));
+    await answerConfirm('もどす');
     expect(st().cells[0]).toBe(RED);
     await userEvent.click(screen.getByRole('button', { name: /図案を確定して自由に編集/ }));
+    await answerConfirm('確定する');
     expect(st().project!.mode).toBe('free');
   });
 
@@ -355,6 +357,7 @@ describe('編集パネル (手動でビーズを置く)', () => {
     act(() => st().fillAt(0, 0, RED));
     render(<EditPanel />);
     await userEvent.click(screen.getByRole('button', { name: /全部消す/ }));
+    await answerConfirm('全部消す');
     expect(st().cells.every((c) => c === EMPTY)).toBe(true);
   });
 });
@@ -465,7 +468,10 @@ describe('つくるモード', () => {
     await userEvent.click(screen.getByRole('button', { name: 'チェックを外す' }));
     expect(st().project!.done[0]).toBe(0);
     await userEvent.click(screen.getAllByRole('button', { name: /^2/ })[0]);
+    act(() => st().setDone([0], true));
     await userEvent.click(screen.getByRole('button', { name: 'チェックを全部消す' }));
+    await answerConfirm('全部消す');
+    expect(st().project!.done[0]).toBe(0);
     await userEvent.click(screen.getByRole('button', { name: /もどる/ }));
     expect(st().buildMode).toBe(false);
   });
@@ -504,6 +510,7 @@ describe('ダイアログ', () => {
     await userEvent.click(screen.getByRole('button', { name: '保存した図案をコピー' }));
     expect(await screen.findByText('保存した図案 のコピー')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '保存した図案 のコピーを削除' }));
+    await answerConfirm('削除する');
     await waitFor(() => expect(screen.queryByText('保存した図案 のコピー')).not.toBeInTheDocument());
     await userEvent.click(screen.getByText('保存した図案'));
     await waitFor(() => expect(st().project?.name).toBe('保存した図案'));

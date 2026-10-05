@@ -3,8 +3,10 @@ import { PALETTE } from '../data/palette';
 import { SAMPLES, sampleUrl } from '../data/samples';
 import { importImage } from '../lib/image';
 import { deserializeProject, type ProjectFile } from '../lib/project';
-import { listProjectRecords, loadProjectRecord, type StoredProject } from '../lib/storage';
+import { listProjectRecords, loadProjectRecord, type ProjectSummary } from '../lib/storage';
+import { deleteProjects } from '../state/library';
 import { useStore } from '../state/store';
+import { deleteConfirm, useConfirm } from './confirm';
 import { Icon } from './Icon';
 import { ImageSearchDialog } from './ImageSearchDialog';
 import { useImagePicker } from './useImagePicker';
@@ -34,16 +36,17 @@ export function StartScreen({ onOpenProjects, onNewFree, onHelp }: { onOpenProje
   const openProject = useStore((s) => s.openProject);
   const updateSettings = useStore((s) => s.updateSettings);
   const showToast = useStore((s) => s.showToast);
-  const [recent, setRecent] = useState<Omit<StoredProject, 'data'>[]>([]);
+  const libraryRev = useStore((s) => s.libraryRev);
+  const [saved, setSaved] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [ask, confirmUi] = useConfirm();
+  const recent = saved.slice(0, 4);
 
   useEffect(() => {
-    listProjectRecords()
-      .then((r) => setRecent(r.slice(0, 4)))
-      .catch(() => setRecent([]));
-  }, []);
+    listProjectRecords().then(setSaved, () => setSaved([]));
+  }, [libraryRev]);
 
   const startFromFile = async (file: File) => {
     setLoading(true);
@@ -75,6 +78,15 @@ export function StartScreen({ onOpenProjects, onNewFree, onHelp }: { onOpenProje
       if (rec) openProject(deserializeProject(rec.data as ProjectFile));
     } catch (e) {
       showToast(e instanceof Error ? e.message : '開けませんでした');
+    }
+  };
+
+  const removeRecent = async (r: ProjectSummary) => {
+    if (!(await ask(deleteConfirm([r.name], false)))) return;
+    try {
+      await deleteProjects([r.id]);
+    } catch {
+      showToast('削除できませんでした');
     }
   };
 
@@ -151,13 +163,23 @@ export function StartScreen({ onOpenProjects, onNewFree, onHelp }: { onOpenProje
 
       {recent.length ? (
         <section className="start-section">
-          <h2>つづきから</h2>
+          <div className="start-section-head">
+            <h2>つづきから</h2>
+            <button className="link-btn" onClick={onOpenProjects}>
+              {saved.length > recent.length ? `すべて見る（${saved.length}件）` : 'マイ図案で管理'}
+            </button>
+          </div>
           <div className="recent-list">
             {recent.map((r) => (
-              <button key={r.id} className="recent-item" onClick={() => openRecent(r.id)}>
-                {r.thumbnail ? <img src={r.thumbnail} alt="" /> : <span className="recent-blank" />}
-                <span>{r.name}</span>
-              </button>
+              <div key={r.id} className="recent-card">
+                <button className="recent-item" onClick={() => openRecent(r.id)}>
+                  {r.thumbnail ? <img src={r.thumbnail} alt="" /> : <span className="recent-blank" />}
+                  <span>{r.name}</span>
+                </button>
+                <button className="recent-delete" onClick={() => removeRecent(r)} aria-label={`${r.name}を削除`} title="削除">
+                  <Icon name="trash" size={16} />
+                </button>
+              </div>
             ))}
           </div>
         </section>
@@ -221,6 +243,7 @@ export function StartScreen({ onOpenProjects, onNewFree, onHelp }: { onOpenProje
           }}
         />
       ) : null}
+      {confirmUi}
     </div>
   );
 }

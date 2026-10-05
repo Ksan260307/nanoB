@@ -3,7 +3,8 @@ import { indexOfCode, PALETTE, PLATE_PEGS, type PaletteSetId } from '../data/pal
 import type { BgMode, BgOptions, BgPoint } from './background';
 import type { OutlineMode, ResampleMode } from './convert';
 import type { Crop, SourceImage } from './image';
-import { EMPTY, NO_EDIT } from './pattern';
+import { compose, EMPTY, NO_EDIT } from './pattern';
+import type { ProjectMeta } from './storage';
 
 export type Mode = 'image' | 'free';
 
@@ -124,6 +125,20 @@ export function createProject(mode: Mode, width: number, height: number, source:
   };
 }
 
+/** マイ図案の一覧に出す情報 (大きさ・ビーズの数・色の数・置いた数) */
+export function projectMeta(p: Project, cells: Int16Array): ProjectMeta {
+  const used = new Set<number>();
+  let beads = 0;
+  let placed = 0;
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i] < 0) continue;
+    beads++;
+    used.add(cells[i]);
+    if (p.done[i]) placed++;
+  }
+  return { width: p.width, height: p.height, beads, colors: used.size, placed };
+}
+
 // ---- シリアライズ ----
 
 export interface ProjectFile {
@@ -224,18 +239,27 @@ function parseProject(f: ProjectFile): Project {
     if (from >= 0 && to >= 0) rep[from] = to;
   }
   s.replacements = rep;
+  const source = validSource(f.source);
+  // 画像の無い画像モードの図案は、今の見た目のままフリーモードにする (アプリでは画像を外すとフリーモードになる)
+  const free = f.mode === 'free' || !source;
   return {
     id: f.id || newId(),
     name: f.name || '図案',
-    mode: f.mode === 'free' ? 'free' : 'image',
+    mode: free ? 'free' : 'image',
     createdAt: f.createdAt || Date.now(),
     updatedAt: f.updatedAt || Date.now(),
-    source: f.source ?? null,
+    source,
     settings: s,
     width: f.width,
     height: f.height,
-    base,
-    overlay,
+    base: free ? null : base,
+    overlay: free && f.mode !== 'free' ? compose(base, overlay) : overlay,
     done: done.length === n ? done : new Uint8Array(n),
   };
+}
+
+/** ファイルの中の画像は data: URL だけ、リンクは http(s) だけを受け付ける (外部から読み込ませない) */
+function validSource(v: SourceImage | null | undefined): SourceImage | null {
+  if (!v || typeof v.dataUrl !== 'string' || !v.dataUrl.startsWith('data:image/') || !(v.width > 0) || !(v.height > 0)) return null;
+  return { ...v, link: typeof v.link === 'string' && /^https?:\/\//.test(v.link) ? v.link : undefined };
 }

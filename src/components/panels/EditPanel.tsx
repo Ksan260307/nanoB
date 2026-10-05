@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { PALETTE } from '../../data/palette';
-import { EMPTY, findIslands, NO_EDIT } from '../../lib/pattern';
+import { centerShift, contentBounds, EMPTY, findIslands, NO_EDIT, type Symmetry } from '../../lib/pattern';
 import { useColorStats } from '../../state/hooks';
 import { useStore, type Tool } from '../../state/store';
 import { ColorGrid } from '../ColorGrid';
+import { useConfirm } from '../confirm';
 import { Icon, type IconName } from '../Icon';
-import { Bead, Section, Tip } from '../ui';
+import { Bead, Section, Segmented, Tip } from '../ui';
 
 const TOOLS: { id: Tool; label: string; icon: IconName; key: string }[] = [
   { id: 'move', label: '移動', icon: 'hand', key: 'H' },
@@ -34,6 +35,88 @@ export function ToolBar() {
         </button>
       ))}
     </div>
+  );
+}
+
+const SYMMETRY_OPTIONS: { value: Symmetry; label: string }[] = [
+  { value: 'none', label: 'しない' },
+  { value: 'x', label: '左右' },
+  { value: 'y', label: '上下' },
+  { value: 'xy', label: '上下左右' },
+];
+
+/** 対称に描く (まん中の線をはさんだ反対側にも同時に描く) */
+function SymmetryPicker() {
+  const symmetry = useStore((s) => s.symmetry);
+  const setUi = useStore((s) => s.setUi);
+  return (
+    <div className="field">
+      <div className="field-head">
+        <span className="field-label">
+          <Icon name="flip" size={16} /> 対称に描く
+        </span>
+      </div>
+      <Segmented small label="対称に描く" value={symmetry} onChange={(v) => setUi({ symmetry: v })} options={SYMMETRY_OPTIONS} />
+    </div>
+  );
+}
+
+/** フリーモードで図案全体を反転・移動する */
+function MoveTools() {
+  const project = useStore((s) => s.project)!;
+  const cells = useStore((s) => s.cells);
+  const rev = useStore((s) => s.rev);
+  const flip = useStore((s) => s.flip);
+  const shift = useStore((s) => s.shift);
+  const centerPattern = useStore((s) => s.centerPattern);
+  const { width: W, height: H } = project;
+  const { bounds, centered } = useMemo(() => {
+    const [dx, dy] = centerShift(cells, W, H);
+    return { bounds: contentBounds(cells, W, H), centered: dx === 0 && dy === 0 };
+    // rev でマスの変更を検知する
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cells, rev, W, H]);
+  const b = bounds ?? { x0: 0, y0: 0, x1: W - 1, y1: H - 1 };
+  const nudges: { cls: string; label: string; icon: IconName; dx: number; dy: number; blocked: boolean }[] = [
+    { cls: 'nudge-up', label: '上に1つずらす', icon: 'arrowUp', dx: 0, dy: -1, blocked: b.y0 === 0 },
+    { cls: 'nudge-left', label: '左に1つずらす', icon: 'arrowLeft', dx: -1, dy: 0, blocked: b.x0 === 0 },
+    { cls: 'nudge-right', label: '右に1つずらす', icon: 'arrowRight', dx: 1, dy: 0, blocked: b.x1 === W - 1 },
+    { cls: 'nudge-down', label: '下に1つずらす', icon: 'arrowDown', dx: 0, dy: 1, blocked: b.y1 === H - 1 },
+  ];
+  return (
+    <>
+      <div className="move-tools">
+        <div className="nudge-pad" role="group" aria-label="図案をずらす">
+          {nudges.map((n) => (
+            <button
+              key={n.cls}
+              className={'icon-btn ' + n.cls}
+              onClick={() => shift(n.dx, n.dy)}
+              disabled={!bounds || n.blocked}
+              aria-label={n.label}
+              title={n.label}
+            >
+              <Icon name={n.icon} size={20} />
+            </button>
+          ))}
+          <span className="nudge-label" aria-hidden="true">
+            ずらす
+          </span>
+        </div>
+        <div className="move-buttons">
+          <button className="btn btn-small" onClick={() => flip('x')} disabled={!bounds}>
+            <Icon name="flip" size={16} /> 左右反転
+          </button>
+          <button className="btn btn-small" onClick={() => flip('y')} disabled={!bounds}>
+            <Icon name="flipV" size={16} /> 上下反転
+          </button>
+          <button className="btn btn-small" onClick={centerPattern} disabled={!bounds || centered}>
+            <Icon name="center" size={16} /> まん中に寄せる
+          </button>
+        </div>
+      </div>
+      <p className="hint">はしにビーズがあると、その向きにはずらせません。つくるモードのチェックも一緒に動きます。</p>
+    </>
   );
 }
 
@@ -72,6 +155,7 @@ export function EditPanel() {
   const showToast = useStore((s) => s.showToast);
   const { counts, symbols } = useColorStats();
   const [allOpen, setAllOpen] = useState(project.mode === 'free');
+  const [ask, confirmUi] = useConfirm();
 
   const usedColors = useMemo(() => [...symbols.keys()].sort((a, b) => counts[b] - counts[a]), [symbols, counts]);
 
@@ -102,6 +186,7 @@ export function EditPanel() {
         <ToolBar />
         <UndoRedo />
         <p className="hint">ペンでなぞるとビーズを置けます。2本指でつまむと拡大、2本指で動かすと移動できます（パソコンはホイール・右ドラッグ）。</p>
+        <SymmetryPicker />
       </Section>
 
       <Section
@@ -156,30 +241,48 @@ export function EditPanel() {
       </Section>
 
       <Section title="まとめて操作" icon="layers">
+        {project.mode === 'free' ? <MoveTools /> : null}
         <div className="btn-row wrap">
           {project.mode === 'image' ? (
             <>
-              <button className="btn btn-small" disabled={!hasEdits} onClick={() => confirm('手で直した部分を全部元に戻しますか？') && clearEdits()}>
+              <button
+                className="btn btn-small"
+                disabled={!hasEdits}
+                onClick={async () => {
+                  if (await ask({ title: '手直しを全部もどす', message: '手で直した部分を全部元に戻しますか？', ok: 'もどす' })) clearEdits();
+                }}
+              >
                 <Icon name="undo" size={16} /> 手直しを全部もどす
               </button>
               <button
                 className="btn btn-small"
-                onClick={() =>
-                  confirm('今の図案を確定して、フリーモード（手で自由に編集）にします。以後、画像の設定を変えても図案は変わりません。よろしいですか？') &&
-                  bakeToFree()
-                }
+                onClick={async () => {
+                  const ok = await ask({
+                    title: '図案を確定して自由に編集',
+                    message: '今の図案を確定して、フリーモード（手で自由に編集）にします。以後、画像の設定を変えても図案は変わりません。',
+                    ok: '確定する',
+                  });
+                  if (ok) bakeToFree();
+                }}
               >
                 <Icon name="lock" size={16} /> 図案を確定して自由に編集
               </button>
             </>
           ) : (
-            <button className="btn btn-small btn-danger" onClick={() => confirm('ビーズを全部消しますか？') && clearAll()}>
+            <button
+              className="btn btn-small btn-danger"
+              onClick={async () => {
+                if (await ask({ title: 'ビーズを全部消す', message: 'ビーズを全部消しますか？（「元に戻す」で戻せます）', ok: '全部消す', danger: true }))
+                  clearAll();
+              }}
+            >
               <Icon name="trash" size={16} /> 全部消す
             </button>
           )}
         </div>
         {project.mode === 'image' ? <Tip>手で直した部分は、色や明るさの設定を変えてもそのまま残ります（大きさを変えるとリセットされます）。</Tip> : null}
       </Section>
+      {confirmUi}
     </div>
   );
 }

@@ -1,7 +1,10 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useId, useRef, useState, type ReactNode } from 'react';
 import { PALETTE } from '../data/palette';
 import { textColorFor } from '../lib/color';
 import { Icon, type IconName } from './Icon';
+
+/** 開いているモーダル (重なっているときは、Esc キーで一番上だけを閉じる) */
+const modalStack: object[] = [];
 
 export function Modal({
   title,
@@ -10,6 +13,7 @@ export function Modal({
   footer,
   wide,
   className,
+  alert,
 }: {
   title: ReactNode;
   onClose: () => void;
@@ -17,34 +21,84 @@ export function Modal({
   footer?: ReactNode;
   wide?: boolean;
   className?: string;
+  /** 確認のためのダイアログ */
+  alert?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  const bodyId = useId();
+  const close = useEffectEvent(onClose);
   useEffect(() => {
+    const me = {};
+    modalStack.push(me);
     const prev = document.activeElement as HTMLElement | null;
     ref.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && modalStack[modalStack.length - 1] === me) close();
     };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
+      modalStack.splice(modalStack.indexOf(me), 1);
       prev?.focus?.();
     };
-  }, [onClose]);
+  }, []);
   return (
     <div className="modal-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={ref} className={`modal ${wide ? 'modal-wide' : ''} ${className ?? ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+      <div
+        ref={ref}
+        className={`modal ${wide ? 'modal-wide' : ''} ${className ?? ''}`}
+        role={alert ? 'alertdialog' : 'dialog'}
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={alert ? bodyId : undefined}
+        tabIndex={-1}
+      >
         <div className="modal-head">
           <h2 id={titleId}>{title}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="閉じる">
             <Icon name="close" />
           </button>
         </div>
-        <div className="modal-body">{children}</div>
+        <div className="modal-body" id={bodyId}>
+          {children}
+        </div>
         {footer ? <div className="modal-foot">{footer}</div> : null}
       </div>
     </div>
+  );
+}
+
+export interface ConfirmOptions {
+  title: string;
+  message?: ReactNode;
+  /** 実行するボタンの文字 */
+  ok: string;
+  /** 削除など、取り消しにくい操作 */
+  danger?: boolean;
+}
+
+/** 確認ダイアログ (useConfirm から開く) */
+export function ConfirmDialog({ title, message, ok, danger, onAnswer }: ConfirmOptions & { onAnswer: (ok: boolean) => void }) {
+  return (
+    <Modal
+      title={title}
+      onClose={() => onAnswer(false)}
+      alert
+      className="modal-confirm"
+      footer={
+        <>
+          <button className="btn" onClick={() => onAnswer(false)}>
+            キャンセル
+          </button>
+          <button className={`btn ${danger ? 'btn-danger-fill' : 'btn-primary'}`} onClick={() => onAnswer(true)}>
+            {ok}
+          </button>
+        </>
+      }
+    >
+      {message}
+    </Modal>
   );
 }
 

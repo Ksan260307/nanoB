@@ -17,6 +17,7 @@
   --warn: #b26a00;
   --warn-soft: #fff3dc;
   --danger: #d63a52;
+  --danger-text: #ffffff;
   --shadow: 0 4px 18px rgba(80, 40, 30, 0.08);
   --shadow-strong: 0 10px 40px rgba(60, 30, 20, 0.22);
   --radius: 14px;
@@ -45,6 +46,7 @@
     --warn: #ffbf55;
     --warn-soft: #3a2e17;
     --danger: #ff6b81;
+    --danger-text: #2a0f14;
     --shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
     --shadow-strong: 0 10px 40px rgba(0, 0, 0, 0.6);
     color-scheme: dark;
@@ -1597,6 +1599,198 @@ p {
   padding-right: 4px;
 }
 
+.project-actions .icon-btn {
+  width: 36px;
+  height: 36px;
+}
+
+.project-list li.checked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.project-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.project-badges em {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+}
+
+.project-badges .badge-progress {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.check-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: 2px solid var(--text-3);
+  border-radius: 8px;
+  background: var(--surface);
+  color: transparent;
+}
+
+.check-box.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.rename-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.library-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.library-search {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.library-tools .segmented button {
+  white-space: nowrap;
+  padding: 4px 10px;
+}
+
+.library-backup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.library-backup h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.library-backup .btn-row {
+  margin-top: 4px;
+}
+
+.modal-foot {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.foot-note {
+  margin-right: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+/* ===== 確認ダイアログ ===== */
+.modal-confirm {
+  width: min(420px, 100%);
+}
+
+.modal-confirm .modal-body {
+  gap: 8px;
+}
+
+.btn-danger-fill {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--danger-text);
+}
+
+.btn-danger-fill:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 85%, #000000);
+  border-color: color-mix(in srgb, var(--danger) 85%, #000000);
+}
+
+.danger-zone {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+
+/* ===== 対称に描く・図案をずらす ===== */
+.field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.move-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+.nudge-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
+  grid-template-rows: repeat(3, 40px);
+  gap: 3px;
+}
+
+.nudge-pad .icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nudge-up {
+  grid-area: 1 / 2;
+}
+
+.nudge-left {
+  grid-area: 2 / 1;
+}
+
+.nudge-right {
+  grid-area: 2 / 3;
+}
+
+.nudge-down {
+  grid-area: 3 / 2;
+}
+
+.nudge-label {
+  grid-area: 2 / 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.move-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
 /* ===== トップ画面 ===== */
 .start {
   width: 100%;
@@ -1741,6 +1935,44 @@ p {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.start-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.recent-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.recent-card .recent-item {
+  flex: 1;
+}
+
+.recent-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text-2);
+  box-shadow: var(--shadow);
+}
+
+.recent-delete:hover {
+  color: var(--danger);
 }
 
 .steps {

@@ -175,6 +175,24 @@ describe('useAutoSave', () => {
     vi.useRealTimers();
     expect(await loadProjectRecord(id)).toBeUndefined();
   });
+
+  it('ほかのアプリに切り替えたときは、待たずに保存する', async () => {
+    st().newFreeProject(2, 2, 'beads');
+    const id = st().project!.id;
+    const { unmount } = render(<AutoSave />);
+    const visibility = vi.spyOn(document, 'visibilityState', 'get');
+    // 表示されたままなら待つ
+    visibility.mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    // 見えなくなったらすぐ保存 (2回目は保存済みなので何もしない)
+    visibility.mockReturnValue('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    vi.useRealTimers();
+    await vi.waitFor(async () => expect(await loadProjectRecord(id)).toBeDefined());
+    unmount();
+    visibility.mockRestore();
+  });
 });
 
 describe('useColorStats / usePrefersDark', () => {

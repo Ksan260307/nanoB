@@ -40,15 +40,30 @@ function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBReque
   );
 }
 
+/** 一覧に出す図案の情報 (古い保存データには大きさしか無い) */
+export interface ProjectMeta {
+  width: number;
+  height: number;
+  /** ビーズの数 */
+  beads?: number;
+  /** 色の数 */
+  colors?: number;
+  /** つくるモードで置いたビーズの数 */
+  placed?: number;
+}
+
 export interface StoredProject {
   id: string;
   name: string;
   updatedAt: number;
   createdAt: number;
   thumbnail: string;
-  /** シリアライズした中身 (projectFile.ts の ProjectFile) */
+  /** シリアライズした中身 (project.ts の ProjectFile) */
   data: unknown;
+  meta?: ProjectMeta;
 }
+
+export type ProjectSummary = Omit<StoredProject, 'data'>;
 
 export function saveProjectRecord(p: StoredProject): Promise<IDBValidKey> {
   return tx('readwrite', (s) => s.put(p));
@@ -62,9 +77,18 @@ export function deleteProjectRecord(id: string): Promise<undefined> {
   return tx('readwrite', (s) => s.delete(id) as IDBRequest<undefined>);
 }
 
-export async function listProjectRecords(): Promise<Omit<StoredProject, 'data'>[]> {
+/** 古い保存データは、中身から大きさだけを読む */
+function metaFromData(data: unknown): ProjectMeta | undefined {
+  const d = data as { width?: unknown; height?: unknown } | null;
+  return d && typeof d.width === 'number' && typeof d.height === 'number' ? { width: d.width, height: d.height } : undefined;
+}
+
+/** 保存した図案の一覧 (更新が新しい順) */
+export async function listProjectRecords(): Promise<ProjectSummary[]> {
   const all = await tx('readonly', (s) => s.getAll() as IDBRequest<StoredProject[]>);
-  return all.map(({ id, name, updatedAt, createdAt, thumbnail }) => ({ id, name, updatedAt, createdAt, thumbnail })).sort((a, b) => b.updatedAt - a.updatedAt);
+  return all
+    .map(({ id, name, updatedAt, createdAt, thumbnail, meta, data }) => ({ id, name, updatedAt, createdAt, thumbnail, meta: meta ?? metaFromData(data) }))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 // ---- 小さな設定は localStorage ----

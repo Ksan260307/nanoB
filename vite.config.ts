@@ -42,6 +42,8 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     environment: 'node',
     setupFiles: ['src/test/setup.ts'],
+    // 画面を何度も操作するテストは、カバレッジ計測中や CI では 5 秒を超えることがある
+    testTimeout: 20_000,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],

@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SourceImage } from '../lib/image';
+import { answerConfirm } from '../test/dialog';
 
 const importImage = vi.fn<(input: File | string, name?: string) => Promise<SourceImage>>();
 vi.mock('../lib/image', async (importOriginal) => ({
@@ -269,8 +270,8 @@ describe('マイ図案ダイアログの細かな動き', () => {
     storage.loadProjectRecord.mockRejectedValueOnce('?');
     await userEvent.click(screen.getByText('図案A'));
     await waitFor(() => expect(st().toast?.text).toBe('開けませんでした'));
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
     await userEvent.click(screen.getByRole('button', { name: '図案Aを削除' }));
+    await answerConfirm('キャンセル');
     expect(storage.deleteProjectRecord).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole('button', { name: /画像から新しく作る/ }));
     await userEvent.click(screen.getByRole('button', { name: /白紙から作る/ }));

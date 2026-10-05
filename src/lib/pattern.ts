@@ -153,3 +153,70 @@ export function resizeCells(src: Int16Array, sw: number, sh: number, dw: number,
   }
   return out;
 }
+
+/** 対称に描くときの向き (x = 左右, y = 上下, xy = 上下左右) */
+export type Symmetry = 'none' | 'x' | 'y' | 'xy';
+
+/** 対称に描くとき、(x, y) と一緒に塗るマス (元のマスを含む) */
+export function mirrorPoints(x: number, y: number, W: number, H: number, sym: Symmetry): [number, number][] {
+  const pts: [number, number][] = [[x, y]];
+  const mx = W - 1 - x;
+  const my = H - 1 - y;
+  if (sym === 'x' || sym === 'xy') pts.push([mx, y]);
+  if (sym === 'y' || sym === 'xy') pts.push([x, my]);
+  if (sym === 'xy') pts.push([mx, my]);
+  return pts;
+}
+
+/** 左右 (x) または上下 (y) に反転したコピー */
+export function flipCells<T extends Int16Array | Uint8Array>(src: T, W: number, H: number, axis: 'x' | 'y'): T {
+  const out = src.slice() as T;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const sx = axis === 'x' ? W - 1 - x : x;
+      const sy = axis === 'y' ? H - 1 - y : y;
+      out[y * W + x] = src[sy * W + sx];
+    }
+  }
+  return out;
+}
+
+/** (dx, dy) だけずらしたコピー。はみ出した分はなくなり、空いた所は fill になる */
+export function shiftCells<T extends Int16Array | Uint8Array>(src: T, W: number, H: number, dx: number, dy: number, fill: number): T {
+  const out = src.slice() as T;
+  out.fill(fill);
+  for (let y = 0; y < H; y++) {
+    const sy = y - dy;
+    if (sy < 0 || sy >= H) continue;
+    for (let x = 0; x < W; x++) {
+      const sx = x - dx;
+      if (sx >= 0 && sx < W) out[y * W + x] = src[sy * W + sx];
+    }
+  }
+  return out;
+}
+
+/** ビーズのある範囲 (1つも無ければ null) */
+export function contentBounds(cells: Int16Array, W: number, H: number): { x0: number; y0: number; x1: number; y1: number } | null {
+  let x0 = W;
+  let y0 = H;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (cells[y * W + x] < 0) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  return x1 < 0 ? null : { x0, y0, x1, y1 };
+}
+
+/** ビーズのある範囲をまん中に寄せるための移動量 */
+export function centerShift(cells: Int16Array, W: number, H: number): [number, number] {
+  const b = contentBounds(cells, W, H);
+  if (!b) return [0, 0];
+  return [Math.floor((W - (b.x1 - b.x0 + 1)) / 2) - b.x0, Math.floor((H - (b.y1 - b.y0 + 1)) / 2) - b.y0];
+}

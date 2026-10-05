@@ -4,10 +4,9 @@ import { convertAsync } from '../lib/converter';
 import { bgKey } from '../lib/background';
 import { backgroundRemoved, blockSize, decodeSource, prescale, sourceKeyOf } from '../lib/image';
 import { countColors } from '../lib/pattern';
-import { bgOptions, serializeProject, type Settings } from '../lib/project';
-import { thumbnailDataUrl } from '../lib/render';
-import { saveProjectRecord, savePref } from '../lib/storage';
+import { bgOptions, type Settings } from '../lib/project';
 import { assignSymbols } from '../lib/symbols';
+import { saveNow } from './library';
 import { allowedColors, useStore } from './store';
 
 export function buildConvertOptions(s: Settings, myColors: number[]): ConvertOptions {
@@ -85,33 +84,31 @@ export function useAutoConvert() {
   }, [mode, source, settings, width, height, id, myColors, setBase, setConverting]);
 }
 
-/** 今の図案をすぐに端末へ保存する */
-export function saveNow(): Promise<void> {
-  const { cells, project } = useStore.getState();
-  const p = project!;
-  return saveProjectRecord({
-    id: p.id,
-    name: p.name,
-    createdAt: p.createdAt,
-    updatedAt: p.updatedAt,
-    thumbnail: thumbnailDataUrl(cells, p.width, p.height, 120),
-    data: serializeProject(p),
-  })
-    .then(() => savePref('lastProject', p.id))
-    .catch((e) => console.warn('保存できませんでした', e));
-}
-
 /** 図案が変わったら少し待って端末に自動保存する */
 export function useAutoSave() {
   const project = useStore((s) => s.project);
   const rev = useStore((s) => s.rev);
   useEffect(() => {
     if (!project) return;
-    // 図案が変わると前のタイマーは取り消されるので、ここでは必ず図案がある
-    const timer = setTimeout(() => {
+    let pending = true;
+    const save = () => {
+      pending = false;
       void saveNow();
-    }, 700);
-    return () => clearTimeout(timer);
+    };
+    // 図案が変わると前のタイマーは取り消されるので、ここでは必ず図案がある
+    const timer = setTimeout(save, 700);
+    // ほかのアプリに切り替えた・タブを閉じるときは、待たずに保存する
+    const onHide = () => {
+      if (pending && document.visibilityState === 'hidden') {
+        clearTimeout(timer);
+        save();
+      }
+    };
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onHide);
+    };
   }, [project, rev]);
 }
 

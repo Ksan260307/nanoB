@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { colorCount, makePng, openTab, shapesPng, tapCanvas, totalBeads, waitConverted } from './helpers';
+import { answerConfirm, colorCount, makeFreePattern, makePng, openTab, shapesPng, tapCanvas, totalBeads, waitConverted } from './helpers';
 
 test.beforeEach(async ({ page }) => {
   // 外部への通信 (画像検索) はテストではすべて止める
@@ -157,8 +157,8 @@ test('自動保存され、再読み込み後に「つづきから」開ける',
   await expect(page.getByLabel('図案の名前').first()).toHaveValue('E2Eテスト図案');
   // マイ図案から削除できる
   await page.getByRole('button', { name: 'マイ図案' }).click();
-  page.once('dialog', (d) => d.accept());
   await page.getByRole('button', { name: 'E2Eテスト図案を削除' }).click();
+  await answerConfirm(page, '削除する');
   await expect(page.getByRole('button', { name: 'E2Eテスト図案を削除' })).toHaveCount(0);
 });
 
@@ -259,4 +259,89 @@ test('画面の大きさに合わせたレイアウト', async ({ page }, testIn
   }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow, testInfo.project.name).toBeLessThanOrEqual(0);
+});
+
+test('マイ図案: 名前の変更・さがす・えらんで削除と元に戻す・バックアップの書き出しと読み込み', async ({ page }, testInfo) => {
+  await makeFreePattern(page, 'いちばん');
+  await makeFreePattern(page, 'にばん');
+  await page.getByRole('button', { name: 'マイ図案', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'マイ図案' });
+  const items = dialog.locator('.project-list li');
+  await expect(dialog.getByText('2件の図案を保存しています')).toBeVisible();
+  // 名前を変える
+  await dialog.getByRole('button', { name: 'いちばんの名前を変える' }).click();
+  await dialog.getByLabel('新しい名前').fill('いちばん星');
+  await dialog.getByLabel('新しい名前').press('Enter');
+  await expect(dialog.getByText('いちばん星')).toBeVisible();
+  // さがす
+  await dialog.getByLabel('図案を名前でさがす').fill('星');
+  await expect(items).toHaveCount(1);
+  await dialog.getByLabel('図案を名前でさがす').fill('');
+  await expect(items).toHaveCount(2);
+  // すべてファイルに書き出す
+  const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: /すべてファイルに書き出す/ }).click()]);
+  expect(download.suggestedFilename()).toMatch(/^nanobeads-backup-\d{8}\.json$/);
+  const backup = testInfo.outputPath('backup.json');
+  await download.saveAs(backup);
+  // えらんで削除 → 元に戻す
+  const removeAll = async () => {
+    await dialog.getByRole('button', { name: /えらんで削除・書き出し/ }).click();
+    await dialog.getByRole('button', { name: 'すべてえらぶ' }).click();
+    await dialog.getByRole('button', { name: '削除', exact: true }).click();
+    await answerConfirm(page, '削除する');
+    await expect(dialog.getByText(/保存した図案はまだありません/)).toBeVisible();
+  };
+  await removeAll();
+  await page.locator('.toast').getByRole('button', { name: '元に戻す' }).click();
+  await expect(items).toHaveCount(2);
+  // もう一度すべて削除して、バックアップから戻す
+  await removeAll();
+  await dialog.getByTestId('library-import').setInputFiles(backup);
+  await expect(page.locator('.toast')).toContainText('2件の図案を読み込みました');
+  await expect(items).toHaveCount(2);
+  await expect(dialog.getByText('いちばん星')).toBeVisible();
+});
+
+test('トップ画面の「つづきから」から削除できる (やめる・元に戻す)', async ({ page }) => {
+  await makeFreePattern(page, '消す図案');
+  const card = page.locator('.recent-card', { hasText: '消す図案' });
+  await card.getByRole('button', { name: '消す図案を削除' }).click();
+  await answerConfirm(page, 'キャンセル');
+  await expect(card).toBeVisible();
+  await card.getByRole('button', { name: '消す図案を削除' }).click();
+  await answerConfirm(page, '削除する');
+  await expect(card).toHaveCount(0);
+  await page.locator('.toast').getByRole('button', { name: '元に戻す' }).click();
+  await expect(page.locator('.recent-card', { hasText: '消す図案' })).toBeVisible();
+});
+
+test('保存タブから今の図案を削除するとトップに戻り、元に戻すと開き直す', async ({ page }) => {
+  await page.getByRole('button', { name: /白紙から作る/ }).click();
+  await page.getByRole('button', { name: 'この大きさではじめる' }).click();
+  await page.getByLabel('図案の名前').first().fill('今の図案');
+  await openTab(page, /保存/);
+  await page.getByRole('button', { name: /この図案を削除/ }).click();
+  await answerConfirm(page, '削除する');
+  await expect(page.getByRole('heading', { name: 'ナノビーズ図案メーカー' })).toBeVisible();
+  await expect(page.locator('.toast')).toContainText('「今の図案」を削除しました');
+  await page.locator('.toast').getByRole('button', { name: '元に戻す' }).click();
+  await expect(page.getByLabel('図案の名前').first()).toHaveValue('今の図案');
+});
+
+test('対称に描く・まん中に寄せる・反転・元に戻す', async ({ page, isMobile }) => {
+  await page.getByRole('button', { name: /白紙から作る/ }).click();
+  await page.getByRole('button', { name: 'この大きさではじめる' }).click();
+  await page.getByRole('radio', { name: '左右', exact: true }).click();
+  await tapCanvas(page, 0.2, 0.3, isMobile);
+  expect(await totalBeads(page)).toBe(2);
+  await openTab(page, /編集/);
+  const center = page.getByRole('button', { name: 'まん中に寄せる' });
+  await center.click();
+  await expect(center).toBeDisabled();
+  // 上下反転すると1つずれる (28マスのまん中は 13 と 14 の間)
+  await page.getByRole('button', { name: '上下反転' }).click();
+  await expect(center).toBeEnabled();
+  await page.getByRole('button', { name: '元に戻す' }).first().click();
+  await expect(center).toBeDisabled();
+  expect(await totalBeads(page)).toBe(2);
 });

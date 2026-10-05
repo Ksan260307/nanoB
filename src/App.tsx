@@ -12,7 +12,8 @@ import { Stage } from './components/Stage';
 import { BrandMark, StartScreen } from './components/StartScreen';
 import { useImagePicker } from './components/useImagePicker';
 import { importImage } from './lib/image';
-import { saveNow, useAutoConvert, useAutoSave } from './state/hooks';
+import { useAutoConvert, useAutoSave } from './state/hooks';
+import { saveNow } from './state/library';
 import { useStore, type Tab, type Tool } from './state/store';
 
 type DialogName = 'projects' | 'help' | 'free' | null;

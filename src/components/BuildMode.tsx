@@ -4,6 +4,7 @@ import { EMPTY, plateLayout, plateRect } from '../lib/pattern';
 import { DARK_THEME, LIGHT_THEME, renderPattern } from '../lib/render';
 import { useColorStats, usePrefersDark } from '../state/hooks';
 import { useStore } from '../state/store';
+import { useConfirm } from './confirm';
 import { Icon } from './Icon';
 import { Bead } from './ui';
 import { ZoomCanvas, type ZoomApi } from './ZoomCanvas';
@@ -29,6 +30,7 @@ export function BuildMode() {
   const [plate, setPlate] = useState(() => firstPlateWithBeads(cells, W, H, cols, rows));
   const [focus, setFocus] = useState<number | null>(null);
   const [wake, setWake] = useState<WakeLockLike | null>(null);
+  const [ask, confirmUi] = useConfirm();
   const api = useRef<ZoomApi>(null);
   const rect = plateRect(W, H, plate.c, plate.r);
 
@@ -196,7 +198,9 @@ export function BuildMode() {
           </button>
           <button
             className="icon-btn"
-            onClick={() => confirm('チェックを全部消しますか？') && clearDone()}
+            onClick={async () => {
+              if (await ask({ title: 'チェックを全部消す', message: '置いたところのチェックを全部消しますか？', ok: '全部消す', danger: true })) clearDone();
+            }}
             title="チェックを全部消す"
             aria-label="チェックを全部消す"
           >
@@ -298,6 +302,7 @@ export function BuildMode() {
           </div>
         ) : null}
       </div>
+      {confirmUi}
     </div>
   );
 }

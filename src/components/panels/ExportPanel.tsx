@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
 import { downloadBlob, exportPdf, exportPng, safeFileName, shareBlob, type ExportInput } from '../../lib/exporters';
-import { deserializeProject, newId, serializeProject, type ProjectFile } from '../../lib/project';
+import { newId, serializeProject } from '../../lib/project';
 import type { ViewStyle } from '../../lib/render';
+import { deleteProjects, importFile, importMessage } from '../../state/library';
 import { useStore } from '../../state/store';
+import { deleteConfirm, useConfirm } from '../confirm';
 import { Icon } from '../Icon';
 import { Section, Segmented, Tip } from '../ui';
 
@@ -17,6 +19,7 @@ export function ExportPanel({ onOpenProjects }: { onOpenProjects: () => void }) 
   const [pngStyle, setPngStyle] = useState<ViewStyle>('symbol');
   const [busy, setBusy] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [ask, confirmUi] = useConfirm();
   const empty = !cells.some((c) => c >= 0);
 
   const input = (): ExportInput => ({
@@ -65,12 +68,25 @@ export function ExportPanel({ onOpenProjects }: { onOpenProjects: () => void }) 
 
   const loadFile = async (file: File) => {
     try {
-      const p = deserializeProject(JSON.parse(await file.text()) as ProjectFile);
-      openProject({ ...p, id: newId() });
-      showToast(`「${p.name}」を読み込みました`);
+      const r = await importFile(file);
+      if (r.kind === 'project') {
+        openProject({ ...r.project, id: newId() });
+        showToast(`「${r.project.name}」を読み込みました`);
+      } else {
+        // バックアップ (いくつもの図案) はマイ図案に加える
+        showToast(importMessage(r));
+      }
     } catch (e) {
-      // deserializeProject のエラーは日本語のメッセージ、JSON として読めないときは SyntaxError
-      showToast(e instanceof SyntaxError ? 'ファイルが壊れているため読み込めませんでした' : (e as Error).message);
+      showToast(e instanceof Error ? e.message : '読み込めませんでした');
+    }
+  };
+
+  const remove = async () => {
+    if (!(await ask(deleteConfirm([project.name], true)))) return;
+    try {
+      await deleteProjects([project.id]);
+    } catch {
+      showToast('削除できませんでした');
     }
   };
 
@@ -145,8 +161,16 @@ export function ExportPanel({ onOpenProjects }: { onOpenProjects: () => void }) 
             }}
           />
         </div>
-        <Tip>図案はこのブラウザに自動で保存されます。別の端末に移すときや、バックアップには「ファイルに書き出す」を使ってください。</Tip>
+        <Tip>
+          図案はこのブラウザに自動で保存されます。別の端末に移すときは「ファイルに書き出す」を使ってください。すべての図案をまとめてバックアップするときは、「マイ図案」の「すべてファイルに書き出す」が便利です。
+        </Tip>
+        <div className="danger-zone">
+          <button className="btn btn-small btn-danger" onClick={remove}>
+            <Icon name="trash" size={16} /> この図案を削除
+          </button>
+        </div>
       </Section>
+      {confirmUi}
     </div>
   );
 }

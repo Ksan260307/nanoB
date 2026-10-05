@@ -88,3 +88,20 @@ export async function tapCanvas(page: Page, fx: number, fy: number, isMobile: bo
   if (isMobile) await page.touchscreen.tap(x, y);
   else await page.mouse.click(x, y);
 }
+
+/** 白紙から図案を作って名前を付け、トップ画面に戻る */
+export async function makeFreePattern(page: Page, name: string) {
+  await page
+    .getByRole('button', { name: /白紙から作る/ })
+    .first()
+    .click();
+  await page.getByRole('button', { name: 'この大きさではじめる' }).click();
+  await page.getByLabel('図案の名前').first().fill(name);
+  await page.getByRole('button', { name: 'トップに戻る' }).click();
+  await expect(page.locator('.recent-item', { hasText: name })).toBeVisible();
+}
+
+/** アプリ内の確認ダイアログでボタンを押す */
+export async function answerConfirm(page: Page, button: string) {
+  await page.getByRole('alertdialog').getByRole('button', { name: button, exact: true }).click();
+}

@@ -3,13 +3,13 @@ import { PALETTE } from '../data/palette';
 import { bgKey } from '../lib/background';
 import { backgroundRemoved, decodeSource, sourceKeyOf } from '../lib/image';
 import { bgOptions } from '../lib/project';
-import { EMPTY, lineCells } from '../lib/pattern';
+import { EMPTY, lineCells, mirrorPoints } from '../lib/pattern';
 import { DARK_THEME, LIGHT_THEME, makeBitmap, renderPattern, type Underlay, type ViewStyle } from '../lib/render';
 import { useColorStats, usePrefersDark } from '../state/hooks';
 import { useStore } from '../state/store';
 import { Icon } from './Icon';
 import { UndoRedo } from './panels/EditPanel';
-import { ZoomCanvas, type PointerPhase, type ZoomApi } from './ZoomCanvas';
+import { ZoomCanvas, type DrawArgs, type PointerPhase, type ZoomApi } from './ZoomCanvas';
 
 function useSourceImage(dataUrl: string | undefined) {
   const [img, setImg] = useState<{ url: string; el: HTMLImageElement } | null>(null);
@@ -46,6 +46,7 @@ export function Stage() {
   const underlayOpacity = useStore((s) => s.underlayOpacity);
   const converting = useStore((s) => s.converting);
   const tab = useStore((s) => s.tab);
+  const symmetry = useStore((s) => s.symmetry);
   const { symbols } = useColorStats();
   const dark = usePrefersDark();
   const api = useRef<ZoomApi>(null);
@@ -82,7 +83,9 @@ export function Stage() {
   const emptyCells = useMemo(() => new Int16Array(width * height).fill(EMPTY), [width, height]);
   const emptyBitmap = useMemo(() => makeBitmap(emptyCells, width, height), [emptyCells, width, height]);
 
-  const draw = ({ ctx, cell, ox, oy, w, h }: { ctx: CanvasRenderingContext2D; cell: number; ox: number; oy: number; w: number; h: number }) => {
+  const showMirror = tab === 'edit' && symmetry !== 'none' && !compare;
+
+  const draw = ({ ctx, cell, ox, oy, w, h, dpr }: DrawArgs) => {
     renderPattern(ctx, {
       cells: compare ? emptyCells : cells,
       bitmap: compare ? emptyBitmap : bitmap,
@@ -102,6 +105,24 @@ export function Stage() {
       focus,
       underlay,
     });
+    if (showMirror) {
+      // 対称に描くときの、まん中の線
+      ctx.save();
+      ctx.strokeStyle = theme === DARK_THEME ? '#ff9dbe' : '#d93d71';
+      ctx.lineWidth = 2 * dpr;
+      ctx.setLineDash([6 * dpr, 5 * dpr]);
+      ctx.beginPath();
+      if (symmetry !== 'y') {
+        ctx.moveTo(ox + (width / 2) * cell, oy);
+        ctx.lineTo(ox + (width / 2) * cell, oy + height * cell);
+      }
+      if (symmetry !== 'x') {
+        ctx.moveTo(ox, oy + (height / 2) * cell);
+        ctx.lineTo(ox + width * cell, oy + (height / 2) * cell);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
   };
 
   const editing = tab === 'edit' && tool !== 'move';
@@ -127,7 +148,7 @@ export function Stage() {
         const pts = s.last ? lineCells(s.last[0], s.last[1], cx, cy) : [[cx, cy] as [number, number]];
         if (inside || s.last) {
           const changed = st.paint(
-            pts.map(([px, py]) => py * width + px),
+            pts.flatMap(([px, py]) => mirrorPoints(px, py, width, height, symmetry)).map(([px, py]) => py * width + px),
             value,
           );
           s.changed ||= changed;

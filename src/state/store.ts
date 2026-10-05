@@ -3,7 +3,7 @@ import { PALETTE, PALETTE_SETS, PLATE_PEGS, type PaletteSetId } from '../data/pa
 import { deltaE2000 } from '../lib/color';
 import { fitCrop, reaspectCrop, type SourceImage } from '../lib/image';
 import { PALETTE_LAB } from '../lib/paletteColors';
-import { compose, EMPTY, floodRegion, NO_EDIT, resizeCells } from '../lib/pattern';
+import { centerShift, compose, EMPTY, flipCells, floodRegion, mirrorPoints, NO_EDIT, resizeCells, shiftCells, type Symmetry } from '../lib/pattern';
 import { createProject, DEFAULT_SETTINGS, type Mode, type Project, type Settings } from '../lib/project';
 import type { ViewStyle } from '../lib/render';
 import { loadPref, savePref } from '../lib/storage';
@@ -26,6 +26,8 @@ interface Snapshot {
   overlay: Int16Array;
   replacements: Record<number, number>;
   excluded: number[];
+  /** 反転・移動のときだけ、つくるモードのチェックも記録する */
+  done?: Uint8Array;
 }
 
 export interface Toast {
@@ -54,8 +56,12 @@ interface State {
   compare: boolean;
   buildMode: boolean;
   sheetOpen: boolean;
+  /** 対称に描く (ペン・消しゴム・塗りつぶし) */
+  symmetry: Symmetry;
   prefs: Prefs;
   toast: Toast | null;
+  /** 保存した図案 (マイ図案) が変わるたびに増える */
+  libraryRev: number;
 
   openProject: (p: Project, tab?: Tab) => void;
   closeProject: () => void;
@@ -69,7 +75,7 @@ interface State {
   setBase: (cells: Int16Array) => void;
   setConverting: (v: boolean) => void;
 
-  beginStroke: () => void;
+  beginStroke: (withDone?: boolean) => void;
   paint: (indices: number[], value: number) => boolean;
   endStroke: (changed: boolean) => void;
   cancelStroke: () => void;
@@ -79,6 +85,9 @@ interface State {
   clearEdits: () => void;
   clearAll: () => void;
   bakeToFree: () => void;
+  flip: (axis: 'x' | 'y') => void;
+  shift: (dx: number, dy: number) => void;
+  centerPattern: () => void;
   undo: () => void;
   redo: () => void;
 
@@ -90,10 +99,11 @@ interface State {
   setTool: (tool: Tool) => void;
   setColor: (color: number) => void;
   setFocus: (color: number | null) => void;
-  setUi: (patch: Partial<Pick<State, 'showUnderlay' | 'underlayOpacity' | 'compare' | 'buildMode' | 'sheetOpen'>>) => void;
+  setUi: (patch: Partial<Pick<State, 'showUnderlay' | 'underlayOpacity' | 'compare' | 'buildMode' | 'sheetOpen' | 'symmetry'>>) => void;
   setPrefs: (patch: Partial<Prefs>) => void;
   showToast: (text: string, action?: Toast['action']) => void;
   hideToast: () => void;
+  bumpLibrary: () => void;
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -109,8 +119,10 @@ const DEFAULT_PREFS: Prefs = {
 const HISTORY_LIMIT = 60;
 let toastId = 0;
 
-function snapshot(p: Project): Snapshot {
-  return { overlay: p.overlay.slice(), replacements: { ...p.settings.replacements }, excluded: p.settings.excluded.slice() };
+function snapshot(p: Project, withDone = false): Snapshot {
+  const snap: Snapshot = { overlay: p.overlay.slice(), replacements: { ...p.settings.replacements }, excluded: p.settings.excluded.slice() };
+  if (withDone) snap.done = p.done.slice();
+  return snap;
 }
 
 /** 近い色 (自分以外) */
@@ -149,6 +161,16 @@ export const useStore = create<State>((set, get) => {
 
   const touch = (p: Project): Project => ({ ...p, updatedAt: Date.now() });
 
+  /** フリーモードの図案全体を動かす (つくるモードのチェックも一緒に動かす) */
+  const transform = (fn: (p: Project) => { overlay: Int16Array; done: Uint8Array }) => {
+    const p = get().project;
+    if (!p || p.mode !== 'free') return;
+    get().beginStroke(true);
+    const next = touch({ ...p, ...fn(p) });
+    set({ project: next });
+    recompose(next);
+  };
+
   return {
     project: null,
     cells: new Int16Array(0),
@@ -167,8 +189,10 @@ export const useStore = create<State>((set, get) => {
     compare: false,
     buildMode: false,
     sheetOpen: true,
+    symmetry: 'none',
     prefs: { ...DEFAULT_PREFS, ...loadPref<Partial<Prefs>>('prefs', {}) },
     toast: null,
+    libraryRev: 0,
 
     openProject: (p, tab) => {
       const cells = compose(p.base, p.overlay);
@@ -280,10 +304,10 @@ export const useStore = create<State>((set, get) => {
 
     setConverting: (v) => set({ converting: v }),
 
-    beginStroke: () => {
+    beginStroke: (withDone) => {
       const p = get().project;
       if (!p) return;
-      set({ past: [...get().past.slice(-HISTORY_LIMIT + 1), snapshot(p)], future: [] });
+      set({ past: [...get().past.slice(-HISTORY_LIMIT + 1), snapshot(p, withDone)], future: [] });
     },
 
     paint: (indices, value) => {
@@ -317,9 +341,11 @@ export const useStore = create<State>((set, get) => {
     },
 
     fillAt: (x, y, value) => {
-      const { project, cells } = get();
+      const { project, cells, symmetry } = get();
       if (!project) return;
-      const region = floodRegion(cells, project.width, project.height, x, y);
+      const { width: W, height: H } = project;
+      // 対称のときは、反対側の同じ場所からも塗る (塗る前のマスで調べる)
+      const region = mirrorPoints(x, y, W, H, symmetry).flatMap(([px, py]) => floodRegion(cells, W, H, px, py));
       get().beginStroke();
       const changed = get().paint(region, value);
       get().endStroke(changed);
@@ -389,14 +415,30 @@ export const useStore = create<State>((set, get) => {
       recompose(next);
     },
 
+    flip: (axis) => transform((p) => ({ overlay: flipCells(p.overlay, p.width, p.height, axis), done: flipCells(p.done, p.width, p.height, axis) })),
+
+    shift: (dx, dy) =>
+      transform((p) => ({
+        overlay: shiftCells(p.overlay, p.width, p.height, dx, dy, EMPTY),
+        done: shiftCells(p.done, p.width, p.height, dx, dy, 0),
+      })),
+
+    centerPattern: () => {
+      const p = get().project;
+      if (!p) return;
+      const [dx, dy] = centerShift(get().cells, p.width, p.height);
+      if (dx || dy) get().shift(dx, dy);
+    },
+
     undo: () => {
       const { past, future, project } = get();
       if (!project || past.length === 0) return;
       const prev = past[past.length - 1];
-      const cur = snapshot(project);
+      const cur = snapshot(project, !!prev.done);
       const next = touch({
         ...project,
         overlay: prev.overlay,
+        done: prev.done ?? project.done,
         settings: { ...project.settings, replacements: prev.replacements, excluded: prev.excluded },
       });
       set({ project: next, past: past.slice(0, -1), future: [...future, cur] });
@@ -407,10 +449,11 @@ export const useStore = create<State>((set, get) => {
       const { past, future, project } = get();
       if (!project || future.length === 0) return;
       const nxt = future[future.length - 1];
-      const cur = snapshot(project);
+      const cur = snapshot(project, !!nxt.done);
       const next = touch({
         ...project,
         overlay: nxt.overlay,
+        done: nxt.done ?? project.done,
         settings: { ...project.settings, replacements: nxt.replacements, excluded: nxt.excluded },
       });
       set({ project: next, future: future.slice(0, -1), past: [...past, cur] });
@@ -454,6 +497,7 @@ export const useStore = create<State>((set, get) => {
     },
     showToast: (text, action) => set({ toast: { id: ++toastId, text, action } }),
     hideToast: () => set({ toast: null }),
+    bumpLibrary: () => set({ libraryRev: get().libraryRev + 1 }),
   };
 });
 

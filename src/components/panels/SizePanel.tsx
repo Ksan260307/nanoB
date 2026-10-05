@@ -4,6 +4,7 @@ import { MAX_SIZE, MIN_SIZE, type Settings } from '../../lib/project';
 import { formatCm } from '../../lib/shopping';
 import { useColorStats } from '../../state/hooks';
 import { useStore } from '../../state/store';
+import { useConfirm } from '../confirm';
 import { Section, Segmented, Stepper, Tip, Toggle } from '../ui';
 
 const PRESETS = [
@@ -34,9 +35,10 @@ export function SizePanel() {
   const resize = useStore((s) => s.resize);
   const updateSettings = useStore((s) => s.updateSettings);
   const { total } = useColorStats();
+  const [ask, confirmUi] = useConfirm();
   const { settings, width, height, source, mode } = project;
 
-  const apply = (w: number, h: number, patch: Partial<Settings>) => {
+  const apply = async (w: number, h: number, patch: Partial<Settings>) => {
     w = Math.max(MIN_SIZE, Math.min(MAX_SIZE, Math.round(w)));
     h = Math.max(MIN_SIZE, Math.min(MAX_SIZE, Math.round(h)));
     if (w === width && h === height) {
@@ -44,7 +46,10 @@ export function SizePanel() {
       return;
     }
     const hasEdits = project.overlay.some((v) => v !== NO_EDIT);
-    if (mode === 'image' && hasEdits && !confirm('大きさを変えると、手で直した部分は元に戻ります。よろしいですか？')) return;
+    if (mode === 'image' && hasEdits) {
+      const ok = await ask({ title: '大きさを変える', message: '大きさを変えると、手で直した部分は元に戻ります。よろしいですか？', ok: '変える' });
+      if (!ok) return;
+    }
     resize(w, h, patch);
   };
 
@@ -175,6 +180,7 @@ export function SizePanel() {
         ナノビーズのプレートは1枚が28×28ピン（約8cm角）で、つなげて大きな作品も作れます。
         {mode === 'image' ? '写真はビーズの数を増やすほど、くわしく表現できます。' : ''}
       </Tip>
+      {confirmUi}
     </div>
   );
 }

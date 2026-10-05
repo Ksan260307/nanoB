@@ -3,6 +3,7 @@ import { fitCrop, importImage } from '../../lib/image';
 import type { Project } from '../../lib/project';
 import { useStore } from '../../state/store';
 import { BackgroundDialog } from '../BackgroundDialog';
+import { useConfirm } from '../confirm';
 import { CropDialog } from '../CropDialog';
 import { ImageSearchDialog } from '../ImageSearchDialog';
 import { Icon } from '../Icon';
@@ -23,6 +24,7 @@ export function ImagePanel() {
   const [bgOpen, setBgOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ask, confirmUi] = useConfirm();
   const { settings, source, mode } = project;
 
   const picker = useImagePicker(async (file) => {
@@ -184,8 +186,15 @@ export function ImagePanel() {
           <div className="btn-row">
             <button
               className="btn"
-              onClick={() => {
-                if (hasDrawing && !confirm('今の図案に、画像から自動で作った図案を重ねます。手で置いたビーズはそのまま残ります。よろしいですか？')) return;
+              onClick={async () => {
+                const ok =
+                  !hasDrawing ||
+                  (await ask({
+                    title: 'この画像から自動で作る',
+                    message: '今の図案に、画像から自動で作った図案を重ねます。手で置いたビーズはそのまま残ります。',
+                    ok: '自動で作る',
+                  }));
+                if (!ok) return;
                 setMode('image');
                 setUi({ showUnderlay: false });
               }}
@@ -210,6 +219,7 @@ export function ImagePanel() {
           }}
         />
       ) : null}
+      {confirmUi}
     </div>
   );
 }

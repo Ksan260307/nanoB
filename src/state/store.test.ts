@@ -484,3 +484,75 @@ it('おまかせ差し替え: すでに使わない色があれば、それも�
   st().replaceColor(RED, null);
   expect(st().project!.settings.excluded).toEqual([WHITE, RED]);
 });
+
+describe('対称に描く・図案全体を動かす', () => {
+  it('対称のときは塗りつぶしも反対側から塗る', () => {
+    st().newFreeProject(4, 1, 'beads');
+    // [赤][空][空][青] → 左のはしを左右対称で塗る
+    st().paint([0], RED);
+    st().paint([3], BLUE);
+    st().setUi({ symmetry: 'x' });
+    st().fillAt(0, 0, BLACK);
+    expect(Array.from(st().cells)).toEqual([BLACK, EMPTY, EMPTY, BLACK]);
+    // 1回の操作として元に戻せる
+    st().undo();
+    expect(Array.from(st().cells)).toEqual([RED, EMPTY, EMPTY, BLUE]);
+    st().setUi({ symmetry: 'none' });
+  });
+
+  it('左右・上下に反転し、つくるモードのチェックも一緒に動く (元に戻す・やり直しも)', () => {
+    st().newFreeProject(3, 2, 'beads');
+    st().paint([0], RED);
+    st().setDone([0], true);
+    st().flip('x');
+    expect(st().cells[2]).toBe(RED);
+    expect(st().cells[0]).toBe(EMPTY);
+    expect(Array.from(st().project!.done)).toEqual([0, 0, 1, 0, 0, 0]);
+    st().flip('y');
+    expect(st().cells[5]).toBe(RED);
+    expect(st().project!.done[5]).toBe(1);
+    st().undo();
+    expect(st().cells[2]).toBe(RED);
+    expect(st().project!.done[2]).toBe(1);
+    expect(st().project!.done[5]).toBe(0);
+    st().redo();
+    expect(st().project!.done[5]).toBe(1);
+    // ふつうの操作の「元に戻す」は、チェックを変えない
+    st().beginStroke();
+    st().paint([0], BLUE);
+    st().endStroke(true);
+    st().undo();
+    expect(st().project!.done[5]).toBe(1);
+    st().redo();
+    expect(st().project!.done[5]).toBe(1);
+  });
+
+  it('ずらす・まん中に寄せる', () => {
+    st().newFreeProject(5, 5, 'beads');
+    st().paint([0], RED);
+    st().shift(1, 0);
+    expect(st().cells[1]).toBe(RED);
+    st().centerPattern();
+    expect(st().cells[2 * 5 + 2]).toBe(RED);
+    // まん中にあるときは何もしない (履歴も増やさない)
+    const before = st().past.length;
+    st().centerPattern();
+    expect(st().past.length).toBe(before);
+  });
+
+  it('画像モード・図案が無いときは動かさない', () => {
+    st().centerPattern();
+    st().flip('x');
+    expect(st().project).toBeNull();
+    st().newImageProject(source);
+    st().flip('x');
+    st().shift(1, 1);
+    expect(st().past).toHaveLength(0);
+  });
+
+  it('マイ図案の変更を知らせる', () => {
+    const rev = st().libraryRev;
+    st().bumpLibrary();
+    expect(st().libraryRev).toBe(rev + 1);
+  });
+});
