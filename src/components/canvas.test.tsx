@@ -451,8 +451,17 @@ describe('CropDialog (ドラッグ・ピンチ・ホイール)', () => {
   });
 });
 
-describe('BackgroundDialog (画像を読み込んでから)', () => {
-  it('タップした点を表示し、1つ戻す・全部消す・赤で表示', async () => {
+describe('BackgroundDialog (画像を読み込んでから・拡大して指定)', () => {
+  // 100x100 の画像を 400x300 (余白12) に表示: 1画素 2.76px、左上 (62, 12)
+  const tapAt = (canvas: Element, fx: number, fy: number) => {
+    const x = 62 + 276 * fx;
+    const y = 12 + 276 * fy;
+    fireEvent.pointerDown(canvas, { pointerId: 1, clientX: x, clientY: y });
+    fireEvent.pointerUp(canvas, { pointerId: 1, clientX: x, clientY: y });
+  };
+  const summary = () => document.querySelector('.badge-line.center')!.textContent!;
+
+  it('タップで点を指定 (画像の外は無視)・1つ戻す・全部消す・赤で表示', async () => {
     const restore = opaqueCanvas([250, 250, 250]);
     st().newImageProject(source);
     render(<BackgroundDialog onClose={() => {}} />);
@@ -461,20 +470,42 @@ describe('BackgroundDialog (画像を読み込んでから)', () => {
     });
     const canvas = document.querySelector('.bg-preview canvas')!;
     // 画像全体が同じ色 → 自動ですべて透明
-    expect(document.querySelector('.badge-line.center')!.textContent).toContain('100%');
+    expect(summary()).toContain('100%');
     await userEvent.click(screen.getByLabelText('消える部分を赤で表示'));
-    fireEvent.pointerDown(canvas, { clientX: 40, clientY: 30 });
-    fireEvent.pointerDown(canvas, { clientX: 999, clientY: 30 });
-    expect(document.querySelectorAll('.bg-point')).toHaveLength(1);
+    tapAt(canvas, 0.1, 0.1);
+    tapAt(canvas, -0.1, 0.1);
+    tapAt(canvas, 0.1, 1.2);
+    expect(summary()).toContain('消す 1か所・残す 0か所');
     await userEvent.click(screen.getByRole('radio', { name: '残す' }));
-    fireEvent.pointerDown(canvas, { clientX: 80, clientY: 30 });
-    expect(document.querySelectorAll('.bg-point.keep')).toHaveLength(1);
+    tapAt(canvas, 0.5, 0.5);
+    expect(summary()).toContain('消す 1か所・残す 1か所');
     await userEvent.click(screen.getByRole('button', { name: /1つ戻す/ }));
-    expect(document.querySelectorAll('.bg-point')).toHaveLength(1);
+    expect(summary()).toContain('消す 1か所・残す 0か所');
     await userEvent.click(screen.getByRole('button', { name: '点を全部消す' }));
-    expect(document.querySelectorAll('.bg-point')).toHaveLength(0);
+    expect(summary()).not.toContain('指定:');
     await userEvent.click(screen.getByRole('radio', { name: '手動（タップした所）' }));
-    expect(document.querySelector('.badge-line.center')!.textContent).toContain('0%');
+    expect(summary()).toContain('0%');
     restore();
+  });
+
+  it('拡大・縮小・全体表示ボタン、ドラッグで移動してもタップにならない、ダークモード', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
+    st().newImageProject(source);
+    render(<BackgroundDialog onClose={() => {}} />);
+    expect(screen.getByText(/画像を読み込んでいます/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '拡大' })).toBeDisabled();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    await userEvent.click(screen.getByRole('button', { name: '拡大' }));
+    await userEvent.click(screen.getByRole('button', { name: '縮小' }));
+    await userEvent.click(screen.getByRole('button', { name: '全体を表示' }));
+    const canvas = document.querySelector('.bg-preview canvas')!;
+    fireEvent.pointerDown(canvas, { pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(canvas, { pointerId: 1, clientX: 160, clientY: 140 });
+    fireEvent.pointerUp(canvas, { pointerId: 1, clientX: 160, clientY: 140 });
+    expect(summary()).not.toContain('指定:');
+    // ホイールで大きく拡大 (画素をくっきり表示)
+    fireEvent(canvas, new WheelEvent('wheel', { deltaY: -2000, clientX: 200, clientY: 150, cancelable: true }));
   });
 });

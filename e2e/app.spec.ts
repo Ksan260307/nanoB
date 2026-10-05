@@ -55,7 +55,7 @@ test('背景を自動で透明にすると、ビーズの数が減る', async ({
   await expect.poll(() => totalBeads(page)).toBe(before);
 });
 
-test('背景を手動で指定する画面', async ({ page }) => {
+test('背景を手動で指定する画面 (拡大して指定できる)', async ({ page, isMobile }) => {
   await page.locator('[data-testid=image-input]').first().setInputFiles({ name: 'shapes.png', mimeType: 'image/png', buffer: shapesPng() });
   await waitConverted(page);
   await openTab(page, /画像/);
@@ -64,10 +64,17 @@ test('背景を手動で指定する画面', async ({ page }) => {
   await expect(dialog).toBeVisible();
   const canvas = dialog.locator('.bg-preview canvas');
   await expect(canvas).toBeVisible();
-  // 左上の白い部分をタップ → 背景が消える
+  // 拡大・縮小・全体表示
+  await dialog.getByRole('button', { name: '拡大' }).click();
+  await dialog.getByRole('button', { name: '全体を表示' }).click();
+  // 上のまん中 (白い背景) をタップ → 背景が消える
   const box = (await canvas.boundingBox())!;
-  await page.mouse.click(box.x + 4, box.y + 4);
-  await expect(dialog.getByText(/画像の [1-9]\d*% が透明になります/)).toBeVisible();
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height * 0.1;
+  if (isMobile) await page.touchscreen.tap(x, y);
+  else await page.mouse.click(x, y);
+  await expect(dialog.getByText('指定: 消す 1か所・残す 0か所')).toBeVisible();
+  await expect(dialog.getByText(/画像の [1-9][0-9]*% が透明になります/)).toBeVisible();
   await dialog.getByRole('button', { name: /この設定にする/ }).click();
   await waitConverted(page);
   expect(await totalBeads(page)).toBeLessThan(56 * 56);
