@@ -97,7 +97,7 @@ describe('アプリ全体', () => {
     expect(st().toast).toBeNull();
     act(() => st().newFreeProject(4, 4, 'beads'));
     await userEvent.click(screen.getByRole('button', { name: 'トップに戻る' }));
-    expect(st().project).toBeNull();
+    await waitFor(() => expect(st().project).toBeNull());
     expect(st().toast?.text).toContain('自動で保存されています');
     expect(screen.getByRole('heading', { name: 'ナノビーズ図案メーカー' })).toBeInTheDocument();
   });

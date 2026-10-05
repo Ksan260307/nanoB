@@ -12,7 +12,7 @@ import { Stage } from './components/Stage';
 import { BrandMark, StartScreen } from './components/StartScreen';
 import { useImagePicker } from './components/useImagePicker';
 import { importImage } from './lib/image';
-import { useAutoConvert, useAutoSave } from './state/hooks';
+import { saveNow, useAutoConvert, useAutoSave } from './state/hooks';
 import { useStore, type Tab, type Tool } from './state/store';
 
 type DialogName = 'projects' | 'help' | 'free' | null;
@@ -64,10 +64,12 @@ function Header({ onProjects, onHelp }: { onProjects: () => void; onHelp: () => 
   const closeProject = useStore((s) => s.closeProject);
   const setName = useStore((s) => s.setName);
   const showToast = useStore((s) => s.showToast);
-  const goHome = () => {
-    const wasOpen = !!useStore.getState().project;
+  const goHome = async () => {
+    if (!useStore.getState().project) return;
+    // 自動保存を待たずに、最新の状態を保存してから戻る
+    await saveNow();
     closeProject();
-    if (wasOpen) showToast('図案は自動で保存されています（マイ図案から開けます）');
+    showToast('図案は自動で保存されています（マイ図案から開けます）');
   };
   return (
     <header className="topbar">

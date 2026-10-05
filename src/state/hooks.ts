@@ -85,27 +85,31 @@ export function useAutoConvert() {
   }, [mode, source, settings, width, height, id, myColors, setBase, setConverting]);
 }
 
+/** 今の図案をすぐに端末へ保存する */
+export function saveNow(): Promise<void> {
+  const { cells, project } = useStore.getState();
+  const p = project!;
+  return saveProjectRecord({
+    id: p.id,
+    name: p.name,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+    thumbnail: thumbnailDataUrl(cells, p.width, p.height, 120),
+    data: serializeProject(p),
+  })
+    .then(() => savePref('lastProject', p.id))
+    .catch((e) => console.warn('保存できませんでした', e));
+}
+
 /** 図案が変わったら少し待って端末に自動保存する */
 export function useAutoSave() {
   const project = useStore((s) => s.project);
   const rev = useStore((s) => s.rev);
   useEffect(() => {
     if (!project) return;
+    // 図案が変わると前のタイマーは取り消されるので、ここでは必ず図案がある
     const timer = setTimeout(() => {
-      // 図案が変わると前のタイマーは取り消されるので、ここでは必ず図案がある
-      const { cells, project: latest } = useStore.getState();
-      const p = latest!;
-      const data = serializeProject(p);
-      saveProjectRecord({
-        id: p.id,
-        name: p.name,
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
-        thumbnail: thumbnailDataUrl(cells, p.width, p.height, 120),
-        data,
-      })
-        .then(() => savePref('lastProject', p.id))
-        .catch((e) => console.warn('保存できませんでした', e));
+      void saveNow();
     }, 700);
     return () => clearTimeout(timer);
   }, [project, rev]);
