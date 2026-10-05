@@ -22,8 +22,7 @@ export function CropDialog({ onClose }: { onClose: () => void }) {
   }, [source.dataUrl]);
 
   useEffect(() => {
-    const el = boxRef.current;
-    if (!el) return;
+    const el = boxRef.current!;
     const ro = new ResizeObserver(() => {
       const r = el.getBoundingClientRect();
       setBox({ w: r.width, h: r.height });

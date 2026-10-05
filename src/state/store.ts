@@ -333,7 +333,8 @@ export const useStore = create<State>((set, get) => {
       let target = to;
       if (target === null) {
         const candidates = allowedColors({ ...settings, excluded: [...settings.excluded, from] }, get().prefs.myColors);
-        target = nearestColors(from, candidates.length ? candidates : PALETTE.map((_, i) => i), 1)[0] ?? EMPTY;
+        // 自分以外の色は必ずあるので、いちばん近い色が見つかる
+        target = nearestColors(from, candidates.length ? candidates : PALETTE.map((_, i) => i), 1)[0];
         if (p.mode === 'image') settings.excluded = [...settings.excluded.filter((c) => c !== from), from];
       } else if (p.mode === 'image') {
         const rep = { ...settings.replacements };
@@ -345,9 +346,9 @@ export const useStore = create<State>((set, get) => {
       const overlay = p.overlay;
       for (let i = 0; i < overlay.length; i++) if (overlay[i] === from) overlay[i] = target;
       // 再変換が終わるまでの仮表示
-      const base = p.base ? p.base.map((v) => (v === from ? target! : v)) : null;
+      const base = p.base ? p.base.map((v) => (v === from ? target : v)) : null;
       const next = touch({ ...p, settings, overlay, base });
-      set({ project: next, focus: get().focus === from ? null : get().focus, color: get().color === from && target >= 0 ? target : get().color });
+      set({ project: next, focus: get().focus === from ? null : get().focus, color: get().color === from ? target : get().color });
       recompose(next);
     },
 

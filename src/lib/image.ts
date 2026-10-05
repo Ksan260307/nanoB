@@ -64,7 +64,7 @@ export async function importImage(input: File | string, name?: string): Promise<
       }
     }
     const dataUrl = hasAlpha ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.92);
-    const fileName = name ?? (typeof input === 'string' ? (input.split('/').pop() ?? '画像') : input.name);
+    const fileName = name ?? (typeof input === 'string' ? input.split('/').pop() || '画像' : input.name);
     return { dataUrl, width: cw, height: ch, name: fileName.replace(/\.[^.]+$/, '') };
   } finally {
     if (typeof input !== 'string') URL.revokeObjectURL(url);

@@ -192,6 +192,14 @@ export function serializeProject(p: Project): ProjectFile {
 
 export function deserializeProject(f: ProjectFile): Project {
   if (!f || f.app !== 'nanobeads-pattern-maker') throw new Error('ナノビーズ図案メーカーのファイルではありません');
+  try {
+    return parseProject(f);
+  } catch {
+    throw new Error('ファイルが壊れています');
+  }
+}
+
+function parseProject(f: ProjectFile): Project {
   const n = f.width * f.height;
   if (!Number.isInteger(n) || n <= 0 || f.width > MAX_SIZE * 2 || f.height > MAX_SIZE * 2) throw new Error('ファイルが壊れています');
   // 保存時と今のパレットで並びが違う場合に備えて、品番で付け替える

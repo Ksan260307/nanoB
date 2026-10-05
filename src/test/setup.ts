@@ -5,6 +5,9 @@
 import 'fake-indexeddb/auto';
 import { afterEach } from 'vitest';
 
+/** 作られた ResizeObserver (テストから trigger() できる) */
+export const resizeObservers: { trigger: () => void }[] = [];
+
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   await import('@testing-library/jest-dom/vitest');
   const { cleanup } = await import('@testing-library/react');
@@ -13,12 +16,26 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
   if (!('ResizeObserver' in window)) {
     class RO {
-      constructor(private cb: ResizeObserverCallback) {}
+      targets: Element[] = [];
+      constructor(private cb: ResizeObserverCallback) {
+        resizeObservers.push(this);
+      }
       observe(target: Element) {
-        this.cb([{ target, contentRect: target.getBoundingClientRect() } as unknown as ResizeObserverEntry], this as unknown as ResizeObserver);
+        this.targets.push(target);
+        this.trigger();
+      }
+      /** テストから大きさの変化を知らせる */
+      trigger() {
+        this.cb(
+          this.targets.map((target) => ({ target, contentRect: target.getBoundingClientRect() }) as unknown as ResizeObserverEntry),
+          this as unknown as ResizeObserver,
+        );
       }
       unobserve() {}
-      disconnect() {}
+      disconnect() {
+        const i = resizeObservers.indexOf(this);
+        if (i >= 0) resizeObservers.splice(i, 1);
+      }
     }
     (window as unknown as { ResizeObserver: unknown }).ResizeObserver = RO;
   }

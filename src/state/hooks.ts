@@ -92,16 +92,16 @@ export function useAutoSave() {
   useEffect(() => {
     if (!project) return;
     const timer = setTimeout(() => {
-      const { cells } = useStore.getState();
-      const p = useStore.getState().project;
-      if (!p) return;
+      // 図案が変わると前のタイマーは取り消されるので、ここでは必ず図案がある
+      const { cells, project: latest } = useStore.getState();
+      const p = latest!;
       const data = serializeProject(p);
       saveProjectRecord({
         id: p.id,
         name: p.name,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
-        thumbnail: cells.length ? thumbnailDataUrl(cells, p.width, p.height, 120) : '',
+        thumbnail: thumbnailDataUrl(cells, p.width, p.height, 120),
         data,
       })
         .then(() => savePref('lastProject', p.id))
@@ -130,16 +130,11 @@ export function useColorStats() {
 
 /** ダークモードかどうか */
 function subscribeDark(cb: () => void) {
-  if (typeof matchMedia === 'undefined') return () => {};
   const mq = matchMedia('(prefers-color-scheme: dark)');
   mq.addEventListener('change', cb);
   return () => mq.removeEventListener('change', cb);
 }
 
 export function usePrefersDark(): boolean {
-  return useSyncExternalStore(
-    subscribeDark,
-    () => (typeof matchMedia !== 'undefined' ? matchMedia('(prefers-color-scheme: dark)').matches : false),
-    () => false,
-  );
+  return useSyncExternalStore(subscribeDark, () => matchMedia('(prefers-color-scheme: dark)').matches);
 }

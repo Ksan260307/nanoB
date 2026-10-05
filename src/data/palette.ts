@@ -109,7 +109,8 @@ export function indexOfCode(code: string): number {
   return codeIndex.get(code) ?? -1;
 }
 
-function byNames(names: string[]): number[] {
+/** 色名のリスト → インデックス (知らない色名はエラー: セットの定義ミスを防ぐ) */
+export function byNames(names: string[]): number[] {
   return names.map((n) => {
     const i = PALETTE.findIndex((c) => c.name === n);
     if (i < 0) throw new Error(`unknown color: ${n}`);

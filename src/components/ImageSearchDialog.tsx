@@ -65,9 +65,8 @@ export function ImageSearchDialog({
           message: res.rateLimited ? '回数制限のため、一部の結果を読み込めませんでした。' : undefined,
         }));
       }
-    } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return;
-      setState((s) => ({ ...s, status: 'error', message: 'うまく検索できませんでした。' }));
+    } catch {
+      // searchImages が失敗するのは中止されたとき (新しい検索を始めたとき) だけ
     }
   };
 
@@ -81,8 +80,8 @@ export function ImageSearchDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pick = async () => {
-    if (!selected) return;
+  // 「この画像で作る」は画像を選んでいるときだけ表示される
+  const pick = async (selected: SearchResult) => {
     setPicking(true);
     setPickError('');
     try {
@@ -127,7 +126,7 @@ export function ImageSearchDialog({
               </small>
               {pickError ? <small className="error-text">{pickError}</small> : null}
             </div>
-            <button className="btn btn-primary" onClick={pick} disabled={picking}>
+            <button className="btn btn-primary" onClick={() => pick(selected)} disabled={picking}>
               <Icon name={picking ? 'sparkles' : 'check'} size={18} /> {picking ? '読み込み中…' : 'この画像で作る'}
             </button>
           </div>
@@ -152,7 +151,7 @@ export function ImageSearchDialog({
           aria-label="検索するキーワード"
           autoFocus
         />
-        <button className="btn btn-primary btn-small" type="submit" disabled={!query.trim() || state.status === 'loading'}>
+        <button className="btn btn-primary btn-small" type="submit" disabled={!query.trim()}>
           検索
         </button>
       </form>

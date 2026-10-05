@@ -368,3 +368,119 @@ describe('変換オプション', () => {
 it('プレート枚数の表示', () => {
   expect(plateSizeLabel(56, 28)).toBe('2枚 (よこ2×たて1)');
 });
+
+describe('ストアの細かな分岐', () => {
+  it('知らない「使う色」はすべての色として扱う', () => {
+    expect(allowedColors({ ...DEFAULT_SETTINGS, paletteSet: 'nope' as never }, [])).toHaveLength(52);
+  });
+
+  it('図案が無いときの操作は何もしない', () => {
+    st().closeProject();
+    st().setSource(source);
+    st().cancelStroke();
+    st().restoreColor(RED);
+    st().clearAll();
+    st().bakeToFree();
+    st().setDone([0], true);
+    st().clearDone();
+    st().setMode('free');
+    st().setBase(new Int16Array(4));
+    expect(st().project).toBeNull();
+  });
+
+  it('取り消す履歴が無ければ cancelStroke は何もしない', () => {
+    st().newFreeProject(2, 2, 'beads');
+    st().cancelStroke();
+    expect(st().past).toHaveLength(0);
+  });
+
+  it('画像の無い図案に画像を付けると、画像の名前を付ける (名前が無ければそのまま)', () => {
+    st().newFreeProject(2, 2, 'beads');
+    st().setSource({ ...source, name: '' });
+    expect(st().project!.name).toBe('じゆう図案');
+    st().setSource(null);
+    st().setSource({ ...source, name: '花' });
+    expect(st().project!.name).toBe('花');
+    // 2回目以降は名前を変えない
+    st().setSource({ ...source, name: '木' });
+    expect(st().project!.name).toBe('花');
+  });
+
+  it('画像モード → フリーモード: 手直しは残し、それ以外はビーズなし', () => {
+    st().newImageProject(source);
+    st().setBase(new Int16Array(56 * 56).fill(RED));
+    st().beginStroke();
+    st().paint([0], BLUE);
+    st().endStroke(true);
+    st().setMode('free');
+    expect(st().cells[0]).toBe(BLUE);
+    expect(st().cells[1]).toBe(EMPTY);
+  });
+
+  it('「変更なし」で塗ると自動変換の色に戻る (自動変換が無ければビーズなし)', () => {
+    st().newImageProject(source);
+    st().setBase(new Int16Array(56 * 56).fill(RED));
+    st().beginStroke();
+    st().paint([0], BLUE);
+    st().paint([0], NO_EDIT);
+    st().endStroke(true);
+    expect(st().cells[0]).toBe(RED);
+    st().newFreeProject(2, 2, 'beads');
+    st().beginStroke();
+    st().paint([0], BLUE);
+    st().paint([0], NO_EDIT);
+    expect(st().cells[0]).toBe(EMPTY);
+  });
+
+  it('おまかせ差し替えで使える色が無ければ、全色から近い色にする', () => {
+    st().newImageProject(source);
+    st().setPrefs({ myColors: [RED] });
+    st().updateSettings({ paletteSet: 'mine' });
+    st().setBase(new Int16Array(56 * 56).fill(RED));
+    st().replaceColor(RED, null);
+    expect(st().cells[0]).not.toBe(RED);
+    expect(st().cells[0]).toBeGreaterThanOrEqual(0);
+  });
+
+  it('フリーモードの差し替え: 設定は変えず、置いたビーズだけを置き換える', () => {
+    st().newFreeProject(2, 2, 'beads');
+    st().fillAt(0, 0, RED);
+    st().setColor(RED);
+    st().setFocus(RED);
+    st().replaceColor(RED, BLUE);
+    expect(st().cells.every((c) => c === BLUE)).toBe(true);
+    expect(st().project!.settings.replacements).toEqual({});
+    expect(st().focus).toBeNull();
+    expect(st().color).toBe(BLUE);
+    st().replaceColor(BLUE, null);
+    expect(st().project!.settings.excluded).toEqual([]);
+    expect(st().cells[0]).not.toBe(BLUE);
+  });
+
+  it('差し替え: 別の色の置き換えはそのまま・選んでいない色は変えない', () => {
+    st().newImageProject(source);
+    st().setBase(new Int16Array(56 * 56).fill(RED));
+    st().updateSettings({ replacements: { [WHITE]: BLACK } });
+    st().setColor(WHITE);
+    st().setFocus(WHITE);
+    st().replaceColor(RED, BLUE);
+    expect(st().project!.settings.replacements).toEqual({ [WHITE]: BLACK, [RED]: BLUE });
+    expect(st().color).toBe(WHITE);
+    expect(st().focus).toBe(WHITE);
+  });
+
+  it('編集タブ以外で道具を変えても「前の道具」は覚えない', () => {
+    st().newFreeProject(2, 2, 'beads');
+    st().setTab('chart');
+    st().setTool('fill');
+    expect(st().lastEditTool).toBe('pen');
+  });
+});
+
+it('おまかせ差し替え: すでに使わない色があれば、それも残す', () => {
+  st().newImageProject(source);
+  st().setBase(new Int16Array(56 * 56).fill(RED));
+  st().updateSettings({ excluded: [WHITE] });
+  st().replaceColor(RED, null);
+  expect(st().project!.settings.excluded).toEqual([WHITE, RED]);
+});

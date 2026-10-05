@@ -188,8 +188,8 @@ export function Stepper({
   const clamp = (v: number) => Math.max(min, Math.min(max, Math.round(v)));
   const apply = () => {
     setEditing(false);
-    const v = Number(text);
-    if (Number.isFinite(v)) onChange(clamp(v));
+    // 数字以外は入力できないので、空欄のときだけ何もしない
+    if (text !== '') onChange(clamp(Number(text)));
   };
   return (
     <div className="stepper">

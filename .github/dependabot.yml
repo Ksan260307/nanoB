@@ -9,6 +9,13 @@ updates:
         dependency-type: development
       dependencies:
         dependency-type: production
+    ignore:
+      # typescript-eslint が TypeScript 7 に対応するまでは 6.x を使う
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      # CI の Node.js (24) に合わせる
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions

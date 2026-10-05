@@ -72,21 +72,18 @@ export interface RenderOptions {
   region?: { x: number; y: number; w: number; h: number } | null;
   underlay?: Underlay | null;
   /** 1マス=1px の画像 (縮小表示の高速化用。無ければ作る) */
-  bitmap?: HTMLCanvasElement | OffscreenCanvas | null;
+  bitmap?: HTMLCanvasElement | null;
   /** 透明ビーズを描かない (下絵の確認用など) */
   clearBackground?: boolean;
 }
 
-type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
+type AnyCanvas = HTMLCanvasElement;
 
 function createCanvas(w: number, h: number): AnyCanvas {
-  if (typeof document !== 'undefined') {
-    const c = document.createElement('canvas');
-    c.width = w;
-    c.height = h;
-    return c;
-  }
-  return new OffscreenCanvas(w, h);
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  return c;
 }
 
 function ctx2d(c: AnyCanvas): CanvasRenderingContext2D {

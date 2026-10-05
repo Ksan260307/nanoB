@@ -84,9 +84,8 @@ export function ChartPanel() {
                 <ChartRow
                   key={r.color}
                   row={r}
-                  symbol={symbols.get(r.color) ?? ''}
+                  symbol={symbols.get(r.color)!}
                   active={focus === r.color}
-                  owned={prefs.ownedSet !== 'none'}
                   onFocus={() => setFocus(focus === r.color ? null : r.color)}
                   onReplace={() => setReplacing(r.color)}
                 />
@@ -140,14 +139,12 @@ function ChartRow({
   row,
   symbol,
   active,
-  owned,
   onFocus,
   onReplace,
 }: {
   row: ShoppingRow;
   symbol: string;
   active: boolean;
-  owned: boolean;
   onFocus: () => void;
   onReplace: () => void;
 }) {
@@ -164,7 +161,7 @@ function ChartRow({
           <strong>{row.count.toLocaleString()}</strong>
           <small>個</small>
         </span>
-        <span className={`chart-packs ${row.packs === 0 ? 'ok' : ''}`}>{row.packs === 0 ? (owned ? '手持ちでOK' : '-') : `${row.packs}袋`}</span>
+        <span className={`chart-packs ${row.packs === 0 ? 'ok' : ''}`}>{row.packs === 0 ? '手持ちでOK' : `${row.packs}袋`}</span>
       </button>
       <button className="icon-btn chart-swap" onClick={onReplace} aria-label={`${c.name}を別の色に差し替える`} title="別の色に差し替え">
         <Icon name="swap" size={18} />

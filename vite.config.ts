@@ -46,7 +46,9 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/main.tsx', 'src/**/*.d.ts'],
-      reporter: ['text-summary', 'text', 'html', 'json-summary'],
+      reporter: ['text-summary', 'text', 'html', 'json-summary', 'json'],
+      // 単体テストのカバレッジ100%を維持する (下回ると CI が失敗)
+      thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
     },
   },
 });

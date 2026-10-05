@@ -210,13 +210,14 @@ export default function App() {
       setDragging(true);
     };
     const onLeave = (e: DragEvent) => {
-      if (e.relatedTarget === null) setDragging(false);
+      // ウィンドウの外に出たとき (relatedTarget が無い)
+      if (!e.relatedTarget) setDragging(false);
     };
     const onDrop = (e: DragEvent) => {
       if (!isFileDrag(e)) return;
       e.preventDefault();
       setDragging(false);
-      const file = [...(e.dataTransfer?.files ?? [])].find((f) => f.type.startsWith('image/'));
+      const file = [...e.dataTransfer!.files].find((f) => f.type.startsWith('image/'));
       if (file) openImageFile(file);
     };
     const onPaste = (e: ClipboardEvent) => {

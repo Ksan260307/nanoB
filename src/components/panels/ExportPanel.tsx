@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { downloadBlob, exportPdf, exportPng, safeFileName, shareBlob, type ExportInput } from '../../lib/exporters';
-import { deserializeProject, serializeProject, type ProjectFile } from '../../lib/project';
+import { deserializeProject, newId, serializeProject, type ProjectFile } from '../../lib/project';
 import type { ViewStyle } from '../../lib/render';
 import { useStore } from '../../state/store';
 import { Icon } from '../Icon';
@@ -66,10 +66,11 @@ export function ExportPanel({ onOpenProjects }: { onOpenProjects: () => void }) 
   const loadFile = async (file: File) => {
     try {
       const p = deserializeProject(JSON.parse(await file.text()) as ProjectFile);
-      openProject({ ...p, id: crypto.randomUUID?.() ?? p.id });
+      openProject({ ...p, id: newId() });
       showToast(`「${p.name}」を読み込みました`);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '読み込めませんでした');
+      // deserializeProject のエラーは日本語のメッセージ、JSON として読めないときは SyntaxError
+      showToast(e instanceof SyntaxError ? 'ファイルが壊れているため読み込めませんでした' : (e as Error).message);
     }
   };
 

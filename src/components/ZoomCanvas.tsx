@@ -70,12 +70,13 @@ export function ZoomCanvas({
   const frame = useRef(0);
   const drawRef = useRef(draw);
   const pointers = useRef(new Map<number, PointerInfo>());
+  /** 指 (ポインター) が触れている間だけある操作の状態 */
   const gesture = useRef<
-    | { kind: 'none' }
     | { kind: 'pan'; startX: number; startY: number; ox: number; oy: number; downX: number; downY: number; t: number; moved: boolean }
     | { kind: 'draw'; downX: number; downY: number; t: number; moved: boolean }
     | { kind: 'pinch'; dist: number; midX: number; midY: number; view: View }
-  >({ kind: 'none' });
+    | null
+  >(null);
   const fitted = useRef('');
   const propsRef = useRef({ onPointerCell, onTap, panWithSingle, contentW, contentH, margin, maxCell });
 
@@ -92,10 +93,10 @@ export function ZoomCanvas({
 
   const render = useCallback(() => {
     frame.current = 0;
+    // アンマウント直後 (ref は外れたが、後片付けの前) に呼ばれることがある
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const ctx = canvas.getContext('2d')!;
     const dpr = window.devicePixelRatio || 1;
     const v = view.current;
     drawRef.current({ ctx, cell: v.cell * dpr, ox: v.ox * dpr, oy: v.oy * dpr, w: canvas.width, h: canvas.height, dpr });
@@ -154,9 +155,8 @@ export function ZoomCanvas({
 
   // 大きさの変化
   useEffect(() => {
-    const wrap = wrapRef.current;
-    const canvas = canvasRef.current;
-    if (!wrap || !canvas) return;
+    const wrap = wrapRef.current!;
+    const canvas = canvasRef.current!;
     const ro = new ResizeObserver(() => {
       const r = wrap.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -196,8 +196,7 @@ export function ZoomCanvas({
 
   // ホイールでズーム (passive: false が必要)
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const canvas = canvasRef.current!;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const r = canvas.getBoundingClientRect();
@@ -239,7 +238,7 @@ export function ZoomCanvas({
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const g = gesture.current;
     if (pointers.current.size === 2) {
-      if (g.kind === 'draw') {
+      if (g?.kind === 'draw') {
         const { cx, cy } = toCell(e.clientX, e.clientY);
         propsRef.current.onPointerCell?.('cancel', cx, cy);
       }
@@ -271,8 +270,9 @@ export function ZoomCanvas({
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    const g = gesture.current;
-    if (g.kind === 'pinch' && pointers.current.size >= 2) {
+    // 触れている指があれば操作の状態もある
+    const g = gesture.current!;
+    if (g.kind === 'pinch') {
       const [a, b] = [...pointers.current.values()];
       const r = canvasRef.current!.getBoundingClientRect();
       const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
@@ -292,7 +292,7 @@ export function ZoomCanvas({
       view.current.oy = g.oy + (e.clientY - g.startY);
       clampView();
       requestDraw();
-    } else if (g.kind === 'draw') {
+    } else {
       if (Math.hypot(e.clientX - g.downX, e.clientY - g.downY) > 6) g.moved = true;
       const { cx, cy } = toCell(e.clientX, e.clientY);
       propsRef.current.onPointerCell?.('move', cx, cy);
@@ -302,7 +302,7 @@ export function ZoomCanvas({
   const endPointer = (e: React.PointerEvent<HTMLCanvasElement>, cancelled: boolean) => {
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.delete(e.pointerId);
-    const g = gesture.current;
+    const g = gesture.current!;
     const { cx, cy } = toCell(e.clientX, e.clientY);
     if (g.kind === 'pinch') {
       if (pointers.current.size === 1) {
@@ -319,17 +319,17 @@ export function ZoomCanvas({
           t: 0,
           moved: true,
         };
-      } else if (pointers.current.size === 0) {
-        gesture.current = { kind: 'none' };
       }
+      // 3本目の指が残っている場合は、残りの2本でピンチを続ける
       return;
     }
     if (g.kind === 'draw') {
       propsRef.current.onPointerCell?.(cancelled ? 'cancel' : 'up', cx, cy);
-    } else if (g.kind === 'pan' && !cancelled && !g.moved && performance.now() - g.t < 500) {
+    } else if (!cancelled && !g.moved && performance.now() - g.t < 500) {
       propsRef.current.onTap?.(cx, cy);
     }
-    if (pointers.current.size === 0) gesture.current = { kind: 'none' };
+    // 移動・描く操作は指1本だけなので、離したら終わり
+    gesture.current = null;
   };
 
   return (

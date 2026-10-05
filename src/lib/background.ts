@@ -32,22 +32,23 @@ export function bgEnabled(o: Pick<BgOptions, 'mode' | 'points'>): boolean {
 
 const ALPHA_MIN = 128;
 
+/** 画素ごとの Lab。色を 6bit/ch に丸めた固定サイズのキャッシュで高速化する (誤差は ΔE 1 程度) */
 function labs(data: Uint8ClampedArray, n: number): Float32Array {
   const out = new Float32Array(n * 3);
-  const cache = new Map<number, Lab>();
+  const cache = new Float32Array(64 * 64 * 64 * 3);
+  const filled = new Uint8Array(64 * 64 * 64);
   for (let i = 0; i < n; i++) {
-    const r = data[i * 4];
-    const g = data[i * 4 + 1];
-    const b = data[i * 4 + 2];
-    const key = (r << 16) | (g << 8) | b;
-    let lab = cache.get(key);
-    if (!lab) {
-      lab = rgbToLab(r, g, b);
-      if (cache.size < 200000) cache.set(key, lab);
+    const key = ((data[i * 4] >> 2) << 12) | ((data[i * 4 + 1] >> 2) << 6) | (data[i * 4 + 2] >> 2);
+    if (!filled[key]) {
+      const lab = rgbToLab((data[i * 4] & 0xfc) + 2, (data[i * 4 + 1] & 0xfc) + 2, (data[i * 4 + 2] & 0xfc) + 2);
+      cache[key * 3] = lab[0];
+      cache[key * 3 + 1] = lab[1];
+      cache[key * 3 + 2] = lab[2];
+      filled[key] = 1;
     }
-    out[i * 3] = lab[0];
-    out[i * 3 + 1] = lab[1];
-    out[i * 3 + 2] = lab[2];
+    out[i * 3] = cache[key * 3];
+    out[i * 3 + 1] = cache[key * 3 + 1];
+    out[i * 3 + 2] = cache[key * 3 + 2];
   }
   return out;
 }

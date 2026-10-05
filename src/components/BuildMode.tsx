@@ -166,8 +166,8 @@ export function BuildMode() {
     toggleDone(i);
   };
 
-  const markFocus = (v: boolean) => {
-    if (focus === null) return;
+  // 色を選んでいるときだけボタンが出る
+  const markFocus = (focus: number, v: boolean) => {
     const idx: number[] = [];
     for (let y = rect.y; y < rect.y + rect.h; y++) for (let x = rect.x; x < rect.x + rect.w; x++) if (cells[y * W + x] === focus) idx.push(y * W + x);
     setDone(idx, v);
@@ -289,10 +289,10 @@ export function BuildMode() {
         </div>
         {focus !== null ? (
           <div className="btn-row center">
-            <button className="btn btn-primary" onClick={() => markFocus(true)}>
+            <button className="btn btn-primary" onClick={() => markFocus(focus, true)}>
               <Icon name="check" size={18} /> この色をぜんぶ置いた
             </button>
-            <button className="btn btn-ghost" onClick={() => markFocus(false)}>
+            <button className="btn btn-ghost" onClick={() => markFocus(focus, false)}>
               チェックを外す
             </button>
           </div>

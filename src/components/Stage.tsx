@@ -117,8 +117,8 @@ export function Stage() {
         st.beginStroke();
         stroke.current = { last: null, changed: false };
       }
-      const s = stroke.current;
-      if (!s) return;
+      // 描く操作は必ず down から始まる
+      const s = stroke.current!;
       if (phase === 'down' || phase === 'move') {
         if (!inside && !s.last) return;
         const cx = Math.max(0, Math.min(width - 1, x));
@@ -135,7 +135,8 @@ export function Stage() {
       } else if (phase === 'up') {
         st.endStroke(s.changed);
         stroke.current = null;
-      } else if (phase === 'cancel') {
+      } else {
+        // cancel
         st.cancelStroke();
         stroke.current = null;
       }
@@ -144,7 +145,8 @@ export function Stage() {
     if (phase !== 'up' || !inside) return;
     if (tool === 'fill') {
       st.fillAt(x, y, color);
-    } else if (tool === 'picker') {
+    } else {
+      // スポイト
       const c = st.cells[idx];
       if (c >= 0) {
         st.setColor(c);

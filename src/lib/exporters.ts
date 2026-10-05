@@ -66,7 +66,7 @@ interface LegendItem {
 
 function legendItems(counts: Int32Array, symbols: Map<number, string>): LegendItem[] {
   const items: LegendItem[] = [];
-  for (let i = 0; i < counts.length; i++) if (counts[i] > 0) items.push({ color: i, count: counts[i], symbol: symbols.get(i) ?? '' });
+  for (let i = 0; i < counts.length; i++) if (counts[i] > 0) items.push({ color: i, count: counts[i], symbol: symbols.get(i)! });
   return items.sort((a, b) => b.count - a.count);
 }
 
@@ -148,9 +148,8 @@ export function renderSheet(input: ExportInput, style: ViewStyle): HTMLCanvasEle
   const symbols = assignSymbols(counts);
   const items = legendItems(counts, symbols);
   const maxSide = Math.max(W, H);
-  let cell = Math.max(6, Math.min(28, Math.floor(2600 / maxSide)));
-  // iOS の canvas 面積上限 (約1677万px) を超えないように
-  while (cell > 4 && (W * cell + 200) * (H * cell + 900) > 15_000_000) cell--;
+  // 図案部分は最大 2600px 角 → 凡例を足しても iOS の canvas 面積上限 (約1677万px) に収まる
+  const cell = Math.max(6, Math.min(28, Math.floor(2600 / maxSide)));
   const label = cell >= 10 ? 30 : 0;
   const pad = 36;
   const gw = W * cell;
