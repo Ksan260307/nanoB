@@ -8,6 +8,7 @@ import { DARK_THEME, LIGHT_THEME, makeBitmap, renderPattern, type Underlay, type
 import { useColorStats, usePrefersDark } from '../state/hooks';
 import { useStore } from '../state/store';
 import { Icon } from './Icon';
+import { UndoRedo } from './panels/EditPanel';
 import { ZoomCanvas, type PointerPhase, type ZoomApi } from './ZoomCanvas';
 
 function useSourceImage(dataUrl: string | undefined) {
@@ -224,6 +225,11 @@ export function Stage() {
           <Icon name="fit" />
         </button>
       </div>
+      {editing ? (
+        <div className="stage-tools stage-tools-bottom">
+          <UndoRedo compact />
+        </div>
+      ) : null}
       {focus !== null && PALETTE[focus] ? (
         <div className="focus-chip">
           <span className="focus-dot" style={{ background: PALETTE[focus].hex }} />「{PALETTE[focus].name}」だけ表示中

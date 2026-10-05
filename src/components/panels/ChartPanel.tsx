@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { BEADS_PER_PACK, GROUPS, PALETTE } from '../../data/palette';
+import { yodobashiUrl } from '../../data/shops';
 import { shoppingList, shoppingText, yen, type ShoppingRow } from '../../lib/shopping';
 import { useColorStats } from '../../state/hooks';
 import { useStore, type OwnedSet } from '../../state/store';
@@ -119,7 +120,11 @@ export function ChartPanel() {
           checked={prefs.spare}
           onChange={(spare) => setPrefs({ spare })}
         />
-        <p className="hint">単色は1袋{BEADS_PER_PACK.toLocaleString()}個入りで計算しています。金額は希望小売価格（税込）からの目安です。</p>
+        <p className="hint">
+          単色は1袋{BEADS_PER_PACK.toLocaleString()}個入りで計算しています。金額は希望小売価格（税込）からの目安です。
+          <Icon name="cart" size={14} />
+          ボタンで、ヨドバシ.comのその色の商品ページを開けます。
+        </p>
         <div className="btn-row wrap">
           <button className="btn btn-small" onClick={copy} disabled={!rows.length}>
             <Icon name="copy" size={16} /> 買い物メモをコピー
@@ -163,6 +168,16 @@ function ChartRow({
         </span>
         <span className={`chart-packs ${row.packs === 0 ? 'ok' : ''}`}>{row.packs === 0 ? '手持ちでOK' : `${row.packs}袋`}</span>
       </button>
+      <a
+        className="icon-btn chart-shop"
+        href={yodobashiUrl(c.code)}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${c.name}（${c.code}）をヨドバシ.comで見る`}
+        title="ヨドバシ.comで見る"
+      >
+        <Icon name="cart" size={18} />
+      </a>
       <button className="icon-btn chart-swap" onClick={onReplace} aria-label={`${c.name}を別の色に差し替える`} title="別の色に差し替え">
         <Icon name="swap" size={18} />
       </button>

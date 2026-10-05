@@ -89,6 +89,19 @@ describe('アプリ全体', () => {
     expect(st().project).toBeNull();
   });
 
+  it('「トップに戻る」ボタン: 図案を閉じて、自動保存されていることを知らせる', async () => {
+    render(<App />);
+    expect(screen.queryByRole('button', { name: 'トップに戻る' })).toBeNull();
+    // トップ画面でロゴを押しても何も起きない
+    await userEvent.click(screen.getByTitle('トップへ'));
+    expect(st().toast).toBeNull();
+    act(() => st().newFreeProject(4, 4, 'beads'));
+    await userEvent.click(screen.getByRole('button', { name: 'トップに戻る' }));
+    expect(st().project).toBeNull();
+    expect(st().toast?.text).toContain('自動で保存されています');
+    expect(screen.getByRole('heading', { name: 'ナノビーズ図案メーカー' })).toBeInTheDocument();
+  });
+
   it('キーボード操作: 元に戻す・やり直し・道具の切り替え', async () => {
     render(<App />);
     act(() => {

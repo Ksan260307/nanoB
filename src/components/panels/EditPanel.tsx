@@ -37,6 +37,26 @@ export function ToolBar() {
   );
 }
 
+/** 元に戻す・やり直し (編集パネルとキャンバスの上で使う) */
+export function UndoRedo({ compact }: { compact?: boolean }) {
+  const canUndo = useStore((s) => s.past.length > 0);
+  const canRedo = useStore((s) => s.future.length > 0);
+  const undo = useStore((s) => s.undo);
+  const redo = useStore((s) => s.redo);
+  return (
+    <div className={compact ? 'pill-group undo-redo' : 'btn-row'}>
+      <button className={compact ? '' : 'btn btn-small'} onClick={undo} disabled={!canUndo} aria-label="元に戻す" title="元に戻す (Ctrl+Z)">
+        <Icon name="undo" size={18} />
+        <span className={compact ? 'pill-label' : ''}>元に戻す</span>
+      </button>
+      <button className={compact ? '' : 'btn btn-small'} onClick={redo} disabled={!canRedo} aria-label="やり直し" title="やり直し (Ctrl+Y)">
+        <Icon name="redo" size={18} />
+        <span className={compact ? 'pill-label' : ''}>やり直し</span>
+      </button>
+    </div>
+  );
+}
+
 export function EditPanel() {
   const project = useStore((s) => s.project)!;
   const color = useStore((s) => s.color);
@@ -80,6 +100,7 @@ export function EditPanel() {
     <div className="panel-content">
       <Section title="道具" icon="pencil">
         <ToolBar />
+        <UndoRedo />
         <p className="hint">ペンでなぞるとビーズを置けます。2本指でつまむと拡大、2本指で動かすと移動できます（パソコンはホイール・右ドラッグ）。</p>
       </Section>
 

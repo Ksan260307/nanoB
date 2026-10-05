@@ -162,6 +162,16 @@ test('自動保存され、再読み込み後に「つづきから」開ける',
   await expect(page.getByRole('button', { name: 'E2Eテスト図案を削除' })).toHaveCount(0);
 });
 
+test('「トップに戻る」ボタンでトップ画面へ (図案は「つづきから」に残る)', async ({ page }) => {
+  await page.getByRole('button', { name: /白紙から作る/ }).click();
+  await page.getByRole('button', { name: 'この大きさではじめる' }).click();
+  await page.getByLabel('図案の名前').first().fill('戻るテスト');
+  await page.getByRole('button', { name: 'トップに戻る' }).click();
+  await expect(page.getByRole('heading', { name: 'ナノビーズ図案メーカー' })).toBeVisible();
+  await expect(page.locator('.toast')).toContainText('自動で保存されています');
+  await expect(page.locator('.recent-item', { hasText: '戻るテスト' })).toBeVisible();
+});
+
 test('つくるモード: 色をえらんで置いたことにする', async ({ page }) => {
   await page.getByRole('button', { name: /ハート/ }).click();
   await waitConverted(page);

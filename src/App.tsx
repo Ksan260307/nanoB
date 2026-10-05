@@ -63,9 +63,21 @@ function Header({ onProjects, onHelp }: { onProjects: () => void; onHelp: () => 
   const redo = useStore((s) => s.redo);
   const closeProject = useStore((s) => s.closeProject);
   const setName = useStore((s) => s.setName);
+  const showToast = useStore((s) => s.showToast);
+  const goHome = () => {
+    const wasOpen = !!useStore.getState().project;
+    closeProject();
+    if (wasOpen) showToast('図案は自動で保存されています（マイ図案から開けます）');
+  };
   return (
     <header className="topbar">
-      <button className="brand" onClick={closeProject} title="トップへ">
+      {project ? (
+        <button className="btn btn-small btn-ghost home-btn" onClick={goHome} aria-label="トップに戻る" title="トップに戻る">
+          <Icon name="home" size={20} />
+          <span className="home-label">トップ</span>
+        </button>
+      ) : null}
+      <button className="brand" onClick={goHome} title="トップへ">
         <BrandMark size={30} />
         <span className="brand-name">
           ナノビーズ<span className="brand-sub">図案メーカー</span>

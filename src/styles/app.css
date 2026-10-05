@@ -270,6 +270,13 @@ p {
   flex: none;
 }
 
+.home-btn {
+  flex: none;
+  gap: 4px;
+  padding: 6px 10px;
+  color: var(--text);
+}
+
 .brand-name {
   font-weight: 800;
   font-size: 17px;
@@ -362,6 +369,16 @@ p {
 .stage-tools-right {
   right: 10px;
   flex-direction: column;
+}
+
+.stage-tools-bottom {
+  top: auto;
+  bottom: 14px;
+  left: 10px;
+}
+
+.undo-redo button:disabled {
+  opacity: 0.35;
 }
 
 .pill-group {
@@ -1425,6 +1442,11 @@ p {
   margin-right: 2px;
 }
 
+.chart-shop {
+  color: var(--text-2);
+  text-decoration: none;
+}
+
 /* ===== モーダル ===== */
 .modal-backdrop {
   position: fixed;
@@ -2334,6 +2356,17 @@ p {
 
   .brand-sub {
     display: none;
+  }
+
+  /* 図案を開いているときは「トップ」ボタンがあるので、ロゴの文字は省く */
+  .has-project .brand-name,
+  .home-label {
+    display: none;
+  }
+
+  .home-btn {
+    padding: 6px;
+    min-width: 40px;
   }
 
   .title-input {
