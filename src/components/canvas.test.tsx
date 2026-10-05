@@ -167,12 +167,26 @@ describe('ZoomCanvas (拡大縮小・移動・描く操作)', () => {
     await waitFor(() => expect(draw).toHaveBeenCalled());
   });
 
-  it('fitKey が変わると全体表示し直し、画面の大きさが変わると中心を保つ', async () => {
+  it('fitKey が変わると全体表示し直す', async () => {
     const { rerender, draw } = setup();
     rerender(<ZoomCanvas contentW={20} contentH={20} draw={draw} panWithSingle fitKey="b" />);
-    rect.mockImplementation(() => ({ x: 0, y: 0, left: 0, top: 0, width: 500, height: 400, right: 500, bottom: 400, toJSON: () => ({}) }) as DOMRect);
-    act(() => resizeObservers.forEach((o) => o.trigger()));
     await waitFor(() => expect(draw).toHaveBeenCalled());
+  });
+
+  it('画面の大きさが変わったとき: 拡大・移動していなければ全体表示、していれば中心を保つ', async () => {
+    const { draw, canvas } = setup({ panWithSingle: true });
+    const grow = (w: number, h: number) => {
+      rect.mockImplementation(() => ({ x: 0, y: 0, left: 0, top: 0, width: w, height: h, right: w, bottom: h, toJSON: () => ({}) }) as DOMRect);
+      act(() => resizeObservers.forEach((o) => o.trigger()));
+      return draw.mock.calls.at(-1)![0];
+    };
+    // まだ何もしていない → 全体表示 (600x600 なら 1マス 56.8px)
+    expect(grow(600, 600).cell).toBeCloseTo(56.8, 0);
+    // 移動したあとは、大きさが変わっても拡大率を保つ
+    down(canvas, 1, 100, 100);
+    move(canvas, 1, 150, 130);
+    up(canvas, 1, 150, 130);
+    expect(grow(800, 800).cell).toBeCloseTo(56.8, 0);
   });
 
   it('右クリックのメニューは出さない', () => {

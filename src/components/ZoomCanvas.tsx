@@ -78,6 +78,8 @@ export function ZoomCanvas({
     | null
   >(null);
   const fitted = useRef('');
+  /** 拡大・移動したか (していなければ、画面の大きさが変わったときに全体表示し直す) */
+  const userMoved = useRef(false);
   const propsRef = useRef({ onPointerCell, onTap, panWithSingle, contentW, contentH, margin, maxCell });
 
   useEffect(() => {
@@ -125,6 +127,7 @@ export function ZoomCanvas({
     const { contentW: cw, contentH: ch, margin: m, maxCell: mx } = propsRef.current;
     const cell = Math.min(mx, Math.max(0.5, Math.min((w - m * 2) / cw, (h - m * 2) / ch)));
     view.current = { cell, ox: (w - cw * cell) / 2, oy: (h - ch * cell) / 2 };
+    userMoved.current = false;
     requestDraw();
   }, [requestDraw]);
 
@@ -137,6 +140,7 @@ export function ZoomCanvas({
       v.ox = px - ((px - v.ox) * cell) / old;
       v.oy = py - ((py - v.oy) * cell) / old;
       v.cell = cell;
+      userMoved.current = true;
       clampView();
       requestDraw();
     },
@@ -166,8 +170,8 @@ export function ZoomCanvas({
       canvas.height = Math.max(1, Math.round(r.height * dpr));
       canvas.style.width = `${r.width}px`;
       canvas.style.height = `${r.height}px`;
-      if (!prev.w || fitted.current === '') {
-        fitted.current = 'init';
+      if (!prev.w || !userMoved.current) {
+        // 最初の表示・まだ拡大や移動をしていないとき (画面の回転など) は全体表示
         fit();
       } else {
         // 中心を保つ
@@ -205,6 +209,7 @@ export function ZoomCanvas({
         zoomAt(factor, e.clientX - r.left, e.clientY - r.top);
       } else {
         view.current.ox -= e.deltaX;
+        userMoved.current = true;
         clampView();
         requestDraw();
       }
@@ -284,12 +289,14 @@ export function ZoomCanvas({
       const contentX = (g.midX - g.view.ox) / g.view.cell;
       const contentY = (g.midY - g.view.oy) / g.view.cell;
       view.current = { cell, ox: midX - contentX * cell, oy: midY - contentY * cell };
+      userMoved.current = true;
       clampView();
       requestDraw();
     } else if (g.kind === 'pan') {
       if (Math.hypot(e.clientX - g.downX, e.clientY - g.downY) > 6) g.moved = true;
       view.current.ox = g.ox + (e.clientX - g.startX);
       view.current.oy = g.oy + (e.clientY - g.startY);
+      userMoved.current = true;
       clampView();
       requestDraw();
     } else {
