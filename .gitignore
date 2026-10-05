@@ -1,0 +1,14 @@
+node_modules
+dist
+dev-dist
+coverage
+*.local
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea
+npm-debug.log*
+playwright-report
+test-results
+blob-report

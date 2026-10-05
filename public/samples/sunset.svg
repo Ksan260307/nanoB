@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="427" viewBox="0 0 640 427">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#26286a"/>
+      <stop offset=".45" stop-color="#c2508a"/>
+      <stop offset=".78" stop-color="#ff8a4c"/>
+      <stop offset="1" stop-color="#ffd27a"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff9a5a"/>
+      <stop offset=".35" stop-color="#b0507e"/>
+      <stop offset="1" stop-color="#232c66"/>
+    </linearGradient>
+    <radialGradient id="sun">
+      <stop offset="0" stop-color="#fff7cf"/>
+      <stop offset=".6" stop-color="#ffd45c"/>
+      <stop offset="1" stop-color="#ff9c3c"/>
+    </radialGradient>
+  </defs>
+  <rect width="640" height="300" fill="url(#sky)"/>
+  <circle cx="320" cy="288" r="72" fill="url(#sun)"/>
+  <path d="M0 262l92-72 70 50 90-70 82 86-334 44z" fill="#3b2250"/>
+  <path d="M640 252l-80-66-80 50-60-26-62 62 282 28z" fill="#4a2a5d"/>
+  <rect y="292" width="640" height="135" fill="url(#sea)"/>
+  <g fill="#fff1bd" opacity=".75">
+    <rect x="262" y="306" width="116" height="7" rx="3"/>
+    <rect x="280" y="326" width="80" height="6" rx="3"/>
+    <rect x="296" y="346" width="48" height="5" rx="2"/>
+    <rect x="306" y="366" width="28" height="4" rx="2"/>
+  </g>
+  <path d="M120 90q12-10 24 0q12-10 24 0M190 60q9-8 18 0q9-8 18 0M470 110q10-9 20 0q10-9 20 0" stroke="#2a1f3d" stroke-width="5" fill="none" stroke-linecap="round"/>
+</svg>
